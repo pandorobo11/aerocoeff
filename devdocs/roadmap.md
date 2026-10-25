@@ -52,6 +52,8 @@
 - Forces and moments to and from coefficients via dynamic pressure, reference
   area, and reference lengths.
 
-### Phase 6: documentation and release
+### Phase 6: documentation
 
-- User documentation, examples, and PyPI release.
+- User documentation and examples.
+- PyPI release is out of scope; the package is installed from the GitHub
+  repository.
