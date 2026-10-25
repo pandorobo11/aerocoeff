@@ -7,5 +7,8 @@ Use repository documentation in this order:
    silently: frames, signs, angle definitions, and normalization. A later ADR
    takes priority only for the parts it explicitly supersedes.
 
+The [release procedure](development/release.md) describes tagging and
+GitHub Releases.
+
 Add an ADR before implementing any new sign, axis, angle, or normalization
 convention.

@@ -55,5 +55,5 @@
 ### Phase 6: documentation
 
 - User documentation and examples.
-- PyPI release is out of scope; the package is installed from the GitHub
-  repository.
+- Releases are GitHub Releases with the wheel and sdist attached; see
+  [Release](development/release.md). PyPI release is out of scope.
