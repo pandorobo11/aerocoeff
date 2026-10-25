@@ -62,3 +62,23 @@ jobs:
       - name: Tests
         timeout-minutes: 10
         run: uv run --no-sync pytest --cov --cov-report=term
+
+  # The single required status check; fail closed even if a prerequisite is skipped.
+  gate:
+    name: CI gate
+    needs: [quality, test]
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require every prerequisite to succeed
+        env:
+          NEEDS_RESULTS: ${{ toJSON(needs) }}
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          results = json.loads(os.environ["NEEDS_RESULTS"])
+          if not results or any(job["result"] != "success" for job in results.values()):
+              raise SystemExit(f"Required validation did not succeed: {results}")
+          PY
