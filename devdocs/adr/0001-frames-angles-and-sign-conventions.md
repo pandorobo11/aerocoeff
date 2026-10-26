@@ -80,20 +80,22 @@ Public names carry the angle unit: `alpha_rad`, `alpha_deg`, `beta_rad`,
 ### Force coefficients
 
 `(CX, CY, CZ)` are the aerodynamic force components along the axes of the
-frame named in their suffix, positive along each axis. Named body-axis and
-wind-axis quantities:
+frame named in their suffix, positive along each axis. Named quantities, all in
+body or stability axes as in panelsolver:
 
 | Quantity | Definition |
 |---|---|
 | Axial force `CA` | `-CX_body` |
 | Normal force `CN` | `-CZ_body` |
-| Body side force `CY` | `CY_body` |
-| Drag `CD` | `-CX_wind` |
-| Lift `CL` | `-CZ_wind` (equal to `-CZ_stability`) |
-| Wind-axis side force | `CY_wind`, positive along +y_wind |
+| Side force `CY` | `CY_body` (equal to `CY_stability`) |
+| Drag `CD` | `-CX_stability` |
+| Lift `CL` | `-CZ_stability` (equal to `-CZ_wind`) |
 
-Some texts define a crosswind force with the opposite sign of `CY_wind`; it is
-not provided under another name.
+Because `y_stability = y_body`, the side force has one definition and no sign
+ambiguity. Wind-axis components remain available as `CX_wind`, `CY_wind`, and
+`CZ_wind` without other names; the force component opposite the velocity is
+`-CX_wind = cos(beta) CD - sin(beta) CY`, which differs from `CD` when beta is
+nonzero.
 
 ### Moment coefficients
 
@@ -111,23 +113,32 @@ coefficient triple directly is wrong whenever the reference lengths differ:
 with `l_roll = 10`, `l_pitch = 2`, `Cm_body = 0.1`, and beta = 10 deg, the
 correct `Cl_wind` is 0.00347, while rotating the raw triple gives 0.01736.
 
-## Open decisions
+## Review decisions
 
-1. **Drag axis.** This record defines `CD` in wind axes (`-CX_wind`). panelsolver
-   reports `CD` in stability axes (`-CX_stability`); the two differ when beta is
-   nonzero: `CD_wind = cos(beta) CD_stability - sin(beta) CY_body`. Options:
-   keep wind-axis `CD` and also offer `CD_stability`, or follow panelsolver.
-2. **Side force in wind axes.** Keep `CY_wind` only, or also offer the crosswind
-   force with the opposite sign.
-3. **Axis-letter notation.** Confirm the F/B, R/L, D/U letters for selecting
-   frames.
+1. `CD` and `CL` are stability-axis coefficients, matching panelsolver.
+2. No crosswind-force name is defined; the side force is `CY_body`.
+3. Frames are selected with the F/B, R/L, D/U axis letters or a rotation matrix.
+
+## Open decision: positions
+
+Proposed rule. Points such as moment reference points are positions, not
+coefficient components, and carry their own frame, independent of the frame of
+the coefficients. Every point passed to one operation is expressed in the same
+frame orientation with a shared, otherwise arbitrary origin (for example the
+CAD/STL origin in `BRU`), in meters. Only differences of points are used, so
+the origin never needs to be stated: a displacement is rotated into the
+coefficient frame like any other vector, `dr_body = R_body<-points @ (r_to - r_from)`.
+
+For example, six components in `FRD` can have their moment reference moved
+between two points given in `BRU` STL coordinates. Points in different
+coordinate systems, with different origins, are outside this record.
 
 ## Consequences
 
 - panelsolver results map directly: its `beta_sin` attitude gives the same
   alpha and beta as this record, its STL frame is `BRU`, and its `CA`, `CY`,
-  `CN`, `Cl`, `Cm`, `Cn`, and per-axis reference lengths match the body-axis
-  definitions above. Its `CL` equals `CL` here; its `CD` is `CD_stability`.
+  `CN`, `CD`, `CL`, `Cl`, `Cm`, `Cn`, and per-axis reference lengths match the
+  definitions above.
 - The control-surface wrapper builds its basis as a rotation matrix relative to
   the body frame and reuses these rules.
 - Any later change to a sign, axis, or angle definition requires a superseding
@@ -140,7 +151,7 @@ confirmed: the closed-form `C_wind<-body` equals the product of the two
 rotations; it maps `V_body` to `+x_wind`; alpha and beta are recovered from
 `V_body`; panelsolver's `beta_sin` freestream, mapped from `BRU` to body axes,
 equals `-V_body`; panelsolver's `CD` and `CL` formulas equal `-CX_stability`
-and `-CZ_stability`; and the `CD_wind` relation in open decision 1 holds.
+and `-CZ_stability`; and the `-CX_wind` relation in the force section holds.
 
 ## References
 
