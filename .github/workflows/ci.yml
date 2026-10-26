@@ -1,0 +1,84 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# Only PR runs share a cancellable group; main runs have unique run IDs.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || format('run-{0}', github.run_id) }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7.0.1
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v9.0.0
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: uv sync --locked
+
+      - name: Formatting
+        run: uv run --no-sync ruff format --check src tests scripts
+
+      - name: Static checks
+        run: uv run --no-sync ruff check src tests scripts
+
+      - name: Typing
+        run: uv run --no-sync mypy src tests scripts
+
+      - name: Build distributions
+        run: uv build
+
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-15]
+        python-version: ["3.12", "3.13", "3.14"]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7.0.1
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v9.0.0
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        run: uv sync --locked
+
+      - name: Tests
+        timeout-minutes: 10
+        run: uv run --no-sync pytest --cov --cov-report=term
+
+  # The single required status check; fail closed even if a prerequisite is skipped.
+  gate:
+    name: CI gate
+    needs: [quality, test]
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require every prerequisite to succeed
+        env:
+          NEEDS_RESULTS: ${{ toJSON(needs) }}
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          results = json.loads(os.environ["NEEDS_RESULTS"])
+          if not results or any(job["result"] != "success" for job in results.values()):
+              raise SystemExit(f"Required validation did not succeed: {results}")
+          PY

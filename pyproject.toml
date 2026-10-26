@@ -4,7 +4,8 @@ version = "0.1.0"
 description = "A Python package for aerodynamic coefficient transformations."
 readme = "README.md"
 requires-python = ">=3.12"
-license = { text = "MIT" }
+license = "Apache-2.0"
+license-files = ["LICENSE"]
 keywords = ["aerodynamics", "coefficients", "reference-frame", "aircraft"]
 classifiers = [
     "Development Status :: 2 - Pre-Alpha",
@@ -12,14 +13,17 @@ classifiers = [
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Topic :: Scientific/Engineering :: Physics",
 ]
 dependencies = []
 
 [dependency-groups]
 dev = [
-    "ruff>=0.6.0",
     "mypy>=1.10",
+    "pytest>=8",
+    "pytest-cov>=5",
+    "ruff>=0.6.0",
 ]
 
 [project.urls]
@@ -27,7 +31,7 @@ Homepage = "https://github.com/pandorobo11/aerocoeff"
 Repository = "https://github.com/pandorobo11/aerocoeff"
 
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling>=1.27"]
 build-backend = "hatchling.build"
 
 [tool.uv]
@@ -38,7 +42,21 @@ line-length = 100
 target-version = "py312"
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "B", "UP", "SIM"]
+select = ["E", "F", "I", "B", "UP", "SIM", "NPY", "PT"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = ["--strict-markers", "--strict-config"]
+xfail_strict = true
+filterwarnings = ["error"]
+
+[tool.coverage.run]
+source = ["aerocoeff"]
+branch = true
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true
 
 [tool.mypy]
 python_version = "3.12"

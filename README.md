@@ -13,6 +13,13 @@ uv sync
 ## Checks
 
 ```bash
-uv run ruff check .
-uv run mypy src
+python scripts/check.py --quick  # during development
+python scripts/check.py          # before push or pull request
 ```
+
+Contributor and agent instructions are in [AGENTS.md](AGENTS.md); the plan is
+in [devdocs/roadmap.md](devdocs/roadmap.md).
+
+## License
+
+Licensed under the [Apache License 2.0](LICENSE).
