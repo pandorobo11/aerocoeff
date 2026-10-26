@@ -4,6 +4,7 @@ import numpy as np
 import pytest
 
 from aerocoeff import Frame
+from aerocoeff.frames import ROTATION_ATOL
 
 
 def test_body_frame_is_identity() -> None:
@@ -96,6 +97,21 @@ def test_from_matrix_rejects_reflections() -> None:
 def test_from_matrix_rejects_non_orthonormal_matrices() -> None:
     with pytest.raises(ValueError, match="orthonormal"):
         Frame.from_matrix(np.diag([1.0, 1.0, 1.0 + 1e-6]))
+
+
+@pytest.mark.parametrize("gram_delta", [-0.9e-9, 0.9e-9])
+@pytest.mark.parametrize("batched", [False, True])
+def test_from_matrix_rejects_determinant_outside_tolerance(
+    gram_delta: float, batched: bool
+) -> None:
+    # Derivation: R = s I gives R R^T = s^2 I and det(R) = s^3. The Gram matrix
+    # can be within ROTATION_ATOL while the determinant is outside it (ADR 0001).
+    rotation = np.eye(3) * np.sqrt(1.0 + gram_delta)
+    assert np.allclose(rotation @ rotation.T, np.eye(3), rtol=0.0, atol=ROTATION_ATOL)
+    assert abs(np.linalg.det(rotation) - 1.0) > ROTATION_ATOL
+    matrix = np.stack([np.eye(3), rotation]) if batched else rotation
+    with pytest.raises(ValueError, match="determinant"):
+        Frame.from_matrix(matrix)
 
 
 def test_from_matrix_accepts_rounding_within_tolerance() -> None:

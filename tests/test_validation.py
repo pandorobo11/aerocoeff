@@ -25,7 +25,20 @@ def test_finite_array_rejects_booleans(value: object) -> None:
         finite_array(value, "x")  # type: ignore[arg-type]
 
 
-@pytest.mark.parametrize("value", ["1.0", [1 + 2j], np.array([object()])])
+@pytest.mark.parametrize(
+    "value",
+    [
+        "1.0",
+        [1 + 2j],
+        np.array([object()]),
+        np.timedelta64(1, "s"),
+        np.timedelta64("NaT"),
+        np.array([1, 2, 3], dtype="timedelta64[D]"),
+        np.array([1, "NaT"], dtype="timedelta64[ns]"),
+        np.datetime64("2026-10-26"),
+        np.datetime64("NaT"),
+    ],
+)
 def test_finite_array_rejects_non_real_values(value: object) -> None:
     with pytest.raises(TypeError, match="real numeric"):
         finite_array(value, "x")  # type: ignore[arg-type]

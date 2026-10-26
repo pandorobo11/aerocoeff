@@ -25,7 +25,8 @@ def finite_array(value: ArrayLike, name: str) -> FloatArray:
     if _contains_bool(value):
         raise TypeError(f"{name} must be numeric, not boolean")
     array = np.asarray(value)
-    if not (np.issubdtype(array.dtype, np.integer) or np.issubdtype(array.dtype, np.floating)):
+    # timedelta64 is an np.integer subtype, but is not a real-number input.
+    if array.dtype.kind not in "iuf":
         raise TypeError(f"{name} must be real numeric, got dtype {array.dtype}")
     result = array.astype(np.float64, copy=True)
     if not np.all(np.isfinite(result)):

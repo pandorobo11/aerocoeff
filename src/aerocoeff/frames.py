@@ -35,8 +35,8 @@ def _validated_rotation(matrix: ArrayLike, name: str) -> FloatArray:
     gram = rotation @ np.swapaxes(rotation, -1, -2)
     if not np.allclose(gram, np.eye(3), rtol=0.0, atol=ROTATION_ATOL):
         raise ValueError(f"{name} must be orthonormal within {ROTATION_ATOL}")
-    if not np.all(np.linalg.det(rotation) > 0.0):
-        raise ValueError(f"{name} must be right-handed (determinant +1)")
+    if not np.allclose(np.linalg.det(rotation), 1.0, rtol=0.0, atol=ROTATION_ATOL):
+        raise ValueError(f"{name} must be right-handed (determinant +1 within {ROTATION_ATOL})")
     return rotation
 
 
