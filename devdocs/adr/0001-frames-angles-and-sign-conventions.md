@@ -1,6 +1,6 @@
 # ADR 0001: Frames, aerodynamic angles, and sign conventions
 
-- Status: Proposed
+- Status: Accepted
 - Date: 2026-10-26
 
 ## Context
@@ -113,15 +113,9 @@ coefficient triple directly is wrong whenever the reference lengths differ:
 with `l_roll = 10`, `l_pitch = 2`, `Cm_body = 0.1`, and beta = 10 deg, the
 correct `Cl_wind` is 0.00347, while rotating the raw triple gives 0.01736.
 
-## Review decisions
+### Positions
 
-1. `CD` and `CL` are stability-axis coefficients, matching panelsolver.
-2. No crosswind-force name is defined; the side force is `CY_body`.
-3. Frames are selected with the F/B, R/L, D/U axis letters or a rotation matrix.
-
-## Open decision: positions
-
-Proposed rule. Points such as moment reference points are positions, not
+Points such as moment reference points are positions, not
 coefficient components, and carry their own frame, independent of the frame of
 the coefficients. Every point passed to one operation is expressed in the same
 frame orientation with a shared, otherwise arbitrary origin (for example the
@@ -132,6 +126,14 @@ coefficient frame like any other vector, `dr_body = R_body<-points @ (r_to - r_f
 For example, six components in `FRD` can have their moment reference moved
 between two points given in `BRU` STL coordinates. Points in different
 coordinate systems, with different origins, are outside this record.
+
+## Review decisions
+
+1. `CD` and `CL` are stability-axis coefficients, matching panelsolver.
+2. No crosswind-force name is defined; the side force is `CY_body`.
+3. Frames are selected with the F/B, R/L, D/U axis letters or a rotation matrix.
+4. Points carry their own frame, independent of the coefficient frame, and only
+   their differences are used.
 
 ## Consequences
 
