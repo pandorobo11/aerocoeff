@@ -16,7 +16,9 @@ classifiers = [
     "Programming Language :: Python :: 3.14",
     "Topic :: Scientific/Engineering :: Physics",
 ]
-dependencies = []
+dependencies = [
+    "numpy>=2.0",
+]
 
 [dependency-groups]
 dev = [

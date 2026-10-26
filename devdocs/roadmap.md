@@ -22,13 +22,17 @@
 
 - ADR 0001: body, stability, and wind frames; positive alpha and beta; force
   and moment component names and signs; how alternative frames are specified.
-- Coefficient types for forces and moments with explicit frame tags.
-- Angle and unit handling (radian/degree) and the shared validation boundary.
+- Coefficient types for forces and moments with explicit frame tags
+  (`AeroCoefficients`, `ReferenceQuantities`).
+- Frames from axis letters or rotation matrices (`Frame`).
+- The shared validation boundary.
 - Add the NumPy runtime dependency.
 
 ### Phase 2: frame transformations
 
+- Angle inputs with explicit units (`alpha_rad`/`alpha_deg`).
 - Body, stability, and wind frame transformations built from alpha and beta.
+- Named quantities: `CA`, `CN`, `CD`, `CL`.
 - Transformations to and from user-specified frames.
 - Round-trip and reference-value tests.
 
