@@ -8,6 +8,7 @@ wing, z down), every frame is right-handed, and a frame is stored as the rotatio
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Literal
 
 import numpy as np
 from numpy.typing import ArrayLike
@@ -16,6 +17,8 @@ from aerocoeff._validation import FloatArray, finite_array
 
 ROTATION_ATOL = 1e-9
 """Absolute tolerance for orthonormality and determinant checks of rotations."""
+
+FrameKind = Literal["body", "stability", "wind", "custom"]
 
 _DIRECTIONS_BODY: dict[str, tuple[float, float, float]] = {
     "F": (1.0, 0.0, 0.0),
@@ -26,6 +29,7 @@ _DIRECTIONS_BODY: dict[str, tuple[float, float, float]] = {
     "U": (0.0, 0.0, -1.0),
 }
 _OPPOSITE_PAIRS = ("FB", "RL", "DU")
+_KINDS: tuple[FrameKind, ...] = ("body", "stability", "wind", "custom")
 
 
 def _validated_rotation(matrix: ArrayLike, name: str) -> FloatArray:
@@ -40,22 +44,72 @@ def _validated_rotation(matrix: ArrayLike, name: str) -> FloatArray:
     return rotation
 
 
+def _kind_matches(rotation: FloatArray, kind: FrameKind) -> bool:
+    if kind == "body":
+        return bool(np.allclose(rotation, np.eye(3), rtol=0.0, atol=ROTATION_ATOL))
+    if kind == "stability":
+        # A rotation about y_body keeps y_stability = y_body.
+        return bool(np.allclose(rotation[..., 1, :], [0.0, 1.0, 0.0], rtol=0.0, atol=ROTATION_ATOL))
+    if kind == "wind":
+        # z_wind = z_stability is perpendicular to y_body.
+        return bool(np.allclose(rotation[..., 2, 1], 0.0, rtol=0.0, atol=ROTATION_ATOL))
+    return True
+
+
+def _angle_rad(rad: ArrayLike | None, deg: ArrayLike | None, name: str) -> FloatArray:
+    if (rad is None) == (deg is None):
+        raise TypeError(f"give exactly one of {name}_rad and {name}_deg")
+    if rad is not None:
+        return finite_array(rad, f"{name}_rad")
+    assert deg is not None
+    return np.deg2rad(finite_array(deg, f"{name}_deg"))
+
+
+def _stability_from_body(alpha_rad: FloatArray) -> FloatArray:
+    c, s = np.cos(alpha_rad), np.sin(alpha_rad)
+    zero, one = np.zeros_like(c), np.ones_like(c)
+    rows = (
+        np.stack([c, zero, s], -1),
+        np.stack([zero, one, zero], -1),
+        np.stack([-s, zero, c], -1),
+    )
+    return np.stack(rows, axis=-2)
+
+
+def _wind_from_stability(beta_rad: FloatArray) -> FloatArray:
+    c, s = np.cos(beta_rad), np.sin(beta_rad)
+    zero, one = np.zeros_like(c), np.ones_like(c)
+    rows = (
+        np.stack([c, s, zero], -1),
+        np.stack([-s, c, zero], -1),
+        np.stack([zero, zero, one], -1),
+    )
+    return np.stack(rows, axis=-2)
+
+
 @dataclass(frozen=True, eq=False)
 class Frame:
     """A right-handed frame given by ``rotation_from_body`` (``v_frame = R @ v_body``).
 
     ``rotation_from_body`` has shape ``(..., 3, 3)`` so that one frame object can
-    describe a batch of orientations.
+    describe a batch of orientations. ``kind`` marks the body, stability, and wind
+    frames, whose named coefficients (``CA``, ``CD``, ...) are defined in ADR 0001;
+    a kind other than ``"custom"`` is checked against the rotation.
     """
 
     rotation_from_body: FloatArray
     name: str
+    kind: FrameKind = "custom"
 
     def __post_init__(self) -> None:
         rotation = _validated_rotation(self.rotation_from_body, "rotation_from_body")
         object.__setattr__(self, "rotation_from_body", rotation)
         if not isinstance(self.name, str) or not self.name:
             raise TypeError("name must be a non-empty string")
+        if self.kind not in _KINDS:
+            raise ValueError(f"kind must be one of {_KINDS}, got {self.kind!r}")
+        if not _kind_matches(rotation, self.kind):
+            raise ValueError(f"rotation_from_body is not a {self.kind} frame orientation")
 
     @classmethod
     def body(cls) -> Frame:
@@ -81,12 +135,43 @@ class Frame:
         rotation = np.array([_DIRECTIONS_BODY[letter] for letter in letters])
         if np.linalg.det(rotation) < 0.0:
             raise ValueError(f"axes {axes!r} describe a left-handed frame")
-        return cls(rotation, letters)
+        return cls(rotation, letters, "body" if letters == "FRD" else "custom")
 
     @classmethod
     def from_matrix(cls, rotation_from_body: ArrayLike, name: str = "custom") -> Frame:
         """Build a frame from a rotation matrix with ``v_frame = R @ v_body``."""
         return cls(finite_array(rotation_from_body, "rotation_from_body"), name)
+
+    @classmethod
+    def stability(
+        cls, *, alpha_rad: ArrayLike | None = None, alpha_deg: ArrayLike | None = None
+    ) -> Frame:
+        """Stability frame: the body frame rotated about y_body by alpha (ADR 0001).
+
+        Give exactly one of ``alpha_rad`` and ``alpha_deg``; array angles give a
+        batch of frames.
+        """
+        alpha = _angle_rad(alpha_rad, alpha_deg, "alpha")
+        return cls(_stability_from_body(alpha), "stability", "stability")
+
+    @classmethod
+    def wind(
+        cls,
+        *,
+        alpha_rad: ArrayLike | None = None,
+        alpha_deg: ArrayLike | None = None,
+        beta_rad: ArrayLike | None = None,
+        beta_deg: ArrayLike | None = None,
+    ) -> Frame:
+        """Wind frame: the stability frame rotated about z_stability by beta (ADR 0001).
+
+        Give exactly one of each angle pair; the alpha and beta arrays broadcast
+        together.
+        """
+        alpha = _angle_rad(alpha_rad, alpha_deg, "alpha")
+        beta = _angle_rad(beta_rad, beta_deg, "beta")
+        rotation = _wind_from_stability(beta) @ _stability_from_body(alpha)
+        return cls(rotation, "wind", "wind")
 
     @property
     def batch_shape(self) -> tuple[int, ...]:

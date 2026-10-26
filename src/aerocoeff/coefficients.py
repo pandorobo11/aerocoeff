@@ -8,7 +8,7 @@ import numpy as np
 from numpy.typing import ArrayLike
 
 from aerocoeff._validation import FloatArray, finite_array, positive_scalar, vector3_array
-from aerocoeff.frames import Frame
+from aerocoeff.frames import Frame, FrameKind
 
 
 @dataclass(frozen=True)
@@ -99,6 +99,77 @@ class AeroCoefficients:
             frame=Frame.body() if frame is None else frame,
             reference=reference,
         )
+
+    @classmethod
+    def from_axial_normal(
+        cls,
+        *,
+        CA: ArrayLike,
+        CY: ArrayLike,
+        CN: ArrayLike,
+        Cl: ArrayLike,
+        Cm: ArrayLike,
+        Cn: ArrayLike,
+        reference: ReferenceQuantities,
+    ) -> AeroCoefficients:
+        """Build body-frame coefficients from axial and normal force (``CX = -CA``, ``CZ = -CN``).
+
+        This matches the body-axis output of panelsolver.
+        """
+        CA_array = finite_array(CA, "CA")
+        CN_array = finite_array(CN, "CN")
+        return cls.from_components(
+            CX=-CA_array, CY=CY, CZ=-CN_array, Cl=Cl, Cm=Cm, Cn=Cn, reference=reference
+        )
+
+    def to_frame(self, frame: Frame) -> AeroCoefficients:
+        """Express the coefficients in ``frame`` about the same moment reference point.
+
+        Forces are rotated directly. Moments are rotated as the length-scaled vector
+        ``(Cl l_roll, Cm l_pitch, Cn l_yaw)`` and renormalized (ADR 0001).
+        """
+        if not isinstance(frame, Frame):
+            raise TypeError("frame must be a Frame")
+        relative = frame.rotation_from_body @ np.swapaxes(self.frame.rotation_from_body, -1, -2)
+        lengths = self.reference.moment_lengths_m
+        force = (relative @ self.force[..., np.newaxis])[..., 0]
+        moment = (relative @ (self.moment * lengths)[..., np.newaxis])[..., 0] / lengths
+        return AeroCoefficients(force, moment, frame, self.reference)
+
+    def to_body(self) -> AeroCoefficients:
+        """Express the coefficients in the body frame, FRD."""
+        return self.to_frame(Frame.body())
+
+    def _require_kind(self, kind: FrameKind, quantity: str) -> None:
+        if self.frame.kind != kind:
+            raise ValueError(
+                f"{quantity} is defined in {kind} axes, but these coefficients are in the "
+                f"{self.frame.name!r} frame; convert them with to_frame() first"
+            )
+
+    @property
+    def CA(self) -> FloatArray:
+        """Axial force, ``-CX_body``."""
+        self._require_kind("body", "CA")
+        return -self.force[..., 0]
+
+    @property
+    def CN(self) -> FloatArray:
+        """Normal force, ``-CZ_body``."""
+        self._require_kind("body", "CN")
+        return -self.force[..., 2]
+
+    @property
+    def CD(self) -> FloatArray:
+        """Drag, ``-CX_stability``."""
+        self._require_kind("stability", "CD")
+        return -self.force[..., 0]
+
+    @property
+    def CL(self) -> FloatArray:
+        """Lift, ``-CZ_stability``."""
+        self._require_kind("stability", "CL")
+        return -self.force[..., 2]
 
     @property
     def CX(self) -> FloatArray:
