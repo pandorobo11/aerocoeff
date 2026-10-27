@@ -11,6 +11,13 @@ from aerocoeff._validation import FloatArray, finite_array, positive_scalar, vec
 from aerocoeff.frames import Frame, FrameKind
 
 
+def _six_columns(array: ArrayLike) -> FloatArray:
+    values = finite_array(array, "array")
+    if values.ndim < 1 or values.shape[-1] != 6:
+        raise ValueError(f"array must have shape (..., 6), got {values.shape}")
+    return values
+
+
 @dataclass(frozen=True)
 class ReferenceQuantities:
     """Reference area and per-axis moment reference lengths, in SI units.
@@ -110,12 +117,12 @@ class AeroCoefficients:
     ) -> AeroCoefficients:
         """Build from an array of shape ``(..., 6)`` ordered ``CX, CY, CZ, Cl, Cm, Cn``.
 
-        The components are in ``frame``, which defaults to the body frame. This is
+        The components are in ``frame``, which defaults to the body frame. Columns
+        are always frame components: in stability axes they are ``-CD, CY, -CL``,
+        not ``CD, CY, CL`` (use :meth:`from_lift_drag_array` for those). This is
         the inverse of :meth:`to_array`.
         """
-        values = finite_array(array, "array")
-        if values.ndim < 1 or values.shape[-1] != 6:
-            raise ValueError(f"array must have shape (..., 6), got {values.shape}")
+        values = _six_columns(array)
         return cls(
             force=values[..., :3],
             moment=values[..., 3:],
@@ -148,6 +155,50 @@ class AeroCoefficients:
         CL_array = finite_array(CL, "CL")
         return cls.from_components(
             CX=-CD_array, CY=CY, CZ=-CL_array, Cl=Cl, Cm=Cm, Cn=Cn, reference=reference, frame=frame
+        )
+
+    @classmethod
+    def from_axial_normal_array(
+        cls, array: ArrayLike, *, reference: ReferenceQuantities
+    ) -> AeroCoefficients:
+        """Build body-frame coefficients from a ``(..., 6)`` array ordered
+        ``CA, CY, CN, Cl, Cm, Cn``. This is the inverse of :meth:`to_axial_normal_array`.
+        """
+        values = _six_columns(array)
+        return cls.from_axial_normal(
+            CA=values[..., 0],
+            CY=values[..., 1],
+            CN=values[..., 2],
+            Cl=values[..., 3],
+            Cm=values[..., 4],
+            Cn=values[..., 5],
+            reference=reference,
+        )
+
+    @classmethod
+    def from_lift_drag_array(
+        cls,
+        array: ArrayLike,
+        *,
+        reference: ReferenceQuantities,
+        alpha_rad: ArrayLike | None = None,
+        alpha_deg: ArrayLike | None = None,
+    ) -> AeroCoefficients:
+        """Build stability-frame coefficients from a ``(..., 6)`` array ordered
+        ``CD, CY, CL, Cl, Cm, Cn``, all in stability axes. This is the inverse of
+        :meth:`to_lift_drag_array`.
+        """
+        values = _six_columns(array)
+        return cls.from_lift_drag(
+            CD=values[..., 0],
+            CY=values[..., 1],
+            CL=values[..., 2],
+            Cl=values[..., 3],
+            Cm=values[..., 4],
+            Cn=values[..., 5],
+            reference=reference,
+            alpha_rad=alpha_rad,
+            alpha_deg=alpha_deg,
         )
 
     @classmethod
@@ -193,6 +244,22 @@ class AeroCoefficients:
     def to_array(self) -> FloatArray:
         """Return a new ``(..., 6)`` array ordered ``CX, CY, CZ, Cl, Cm, Cn`` in this frame."""
         return np.concatenate([self.force, self.moment], axis=-1)
+
+    def to_axial_normal_array(self) -> FloatArray:
+        """Return a new ``(..., 6)`` array ordered ``CA, CY, CN, Cl, Cm, Cn``.
+
+        Only defined in the body frame.
+        """
+        self._require_kind("body", "the axial-normal array")
+        return np.stack([self.CA, self.CY, self.CN, self.Cl, self.Cm, self.Cn], axis=-1)
+
+    def to_lift_drag_array(self) -> FloatArray:
+        """Return a new ``(..., 6)`` array ordered ``CD, CY, CL, Cl, Cm, Cn``.
+
+        Only defined in the stability frame.
+        """
+        self._require_kind("stability", "the lift-drag array")
+        return np.stack([self.CD, self.CY, self.CL, self.Cl, self.Cm, self.Cn], axis=-1)
 
     def _require_kind(self, kind: FrameKind, quantity: str) -> None:
         if self.frame.kind != kind:

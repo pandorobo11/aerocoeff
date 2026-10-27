@@ -382,3 +382,68 @@ def test_from_lift_drag_validates_by_name() -> None:
         AeroCoefficients.from_lift_drag(
             CD=0, CY=0, CL=np.inf, Cl=0, Cm=0, Cn=0, reference=REFERENCE, alpha_deg=0.0
         )
+
+
+# Named-column arrays
+
+
+def test_axial_normal_array_columns() -> None:
+    table = np.array([[0.3, -0.1, 1.2, 0.01, -0.02, 0.03], [0.4, 0.0, 1.5, 0.0, -0.04, 0.0]])
+    body = AeroCoefficients.from_axial_normal_array(table, reference=REFERENCE)
+    assert body.frame.kind == "body"
+    # ADR 0001: CX = -CA, CZ = -CN.
+    np.testing.assert_array_equal(body.to_array()[:, [0, 2]], -table[:, [0, 2]])
+    np.testing.assert_array_equal(body.to_array()[:, [1, 3, 4, 5]], table[:, [1, 3, 4, 5]])
+    np.testing.assert_array_equal(body.to_axial_normal_array(), table)
+
+
+def test_lift_drag_array_matches_from_lift_drag() -> None:
+    # Anderson example inverted, as in test_from_lift_drag_inverts_the_anderson_example.
+    table = np.array([0.5866025403784439, 0.0, 0.8160254037844386, 0.0, 0.0, 0.0])
+    stability = AeroCoefficients.from_lift_drag_array(table, reference=REFERENCE, alpha_deg=30.0)
+    assert stability.frame.kind == "stability"
+    np.testing.assert_array_equal(stability.to_lift_drag_array(), table)
+    np.testing.assert_allclose(stability.to_body().to_axial_normal_array()[[0, 2]], [0.1, 1.0])
+
+
+def test_named_column_arrays_round_trip_through_frames() -> None:
+    body = _random_body_coefficients()
+    axial_normal = body.to_axial_normal_array()
+    lift_drag = body.to_frame(Frame.stability(alpha_rad=ALPHA_RAD)).to_lift_drag_array()
+    rebuilt = AeroCoefficients.from_lift_drag_array(
+        lift_drag, reference=REFERENCE, alpha_rad=ALPHA_RAD
+    ).to_body()
+    np.testing.assert_allclose(rebuilt.to_axial_normal_array(), axial_normal, rtol=0, atol=1e-13)
+    again = AeroCoefficients.from_axial_normal_array(axial_normal, reference=REFERENCE)
+    np.testing.assert_array_equal(again.to_array(), body.to_array())
+
+
+def test_lift_drag_table_differs_from_frame_component_table() -> None:
+    # from_array reads stability columns as CX, CY, CZ = -CD, CY, -CL (ADR 0001).
+    stability = _random_body_coefficients().to_frame(Frame.stability(alpha_rad=ALPHA_RAD))
+    lift_drag = stability.to_lift_drag_array()
+    components = stability.to_array()
+    np.testing.assert_array_equal(components[:, [0, 2]], -lift_drag[:, [0, 2]])
+    np.testing.assert_array_equal(components[:, [1, 3, 4, 5]], lift_drag[:, [1, 3, 4, 5]])
+
+
+def test_named_column_arrays_require_their_frame() -> None:
+    body = _random_body_coefficients(2)
+    stability = body.to_frame(Frame.stability(alpha_deg=5.0))
+    with pytest.raises(ValueError, match="lift-drag array is defined in stability axes"):
+        body.to_lift_drag_array()
+    with pytest.raises(ValueError, match="axial-normal array is defined in body axes"):
+        stability.to_axial_normal_array()
+
+
+@pytest.mark.parametrize("shape", [(), (2, 3), (5,)])
+def test_named_column_arrays_require_six_columns(shape: tuple[int, ...]) -> None:
+    with pytest.raises(ValueError, match=r"\(\.\.\., 6\)"):
+        AeroCoefficients.from_axial_normal_array(np.zeros(shape), reference=REFERENCE)
+    with pytest.raises(ValueError, match=r"\(\.\.\., 6\)"):
+        AeroCoefficients.from_lift_drag_array(np.zeros(shape), reference=REFERENCE, alpha_deg=0.0)
+
+
+def test_lift_drag_array_requires_exactly_one_alpha() -> None:
+    with pytest.raises(TypeError, match="exactly one of alpha_rad and alpha_deg"):
+        AeroCoefficients.from_lift_drag_array(np.zeros(6), reference=REFERENCE)
