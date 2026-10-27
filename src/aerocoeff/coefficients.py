@@ -108,7 +108,7 @@ class AeroCoefficients:
         )
 
     @classmethod
-    def from_array(
+    def from_components_array(
         cls,
         array: ArrayLike,
         *,
@@ -120,13 +120,53 @@ class AeroCoefficients:
         The components are in ``frame``, which defaults to the body frame. Columns
         are always frame components: in stability axes they are ``-CD, CY, -CL``,
         not ``CD, CY, CL`` (use :meth:`from_lift_drag_array` for those). This is
-        the inverse of :meth:`to_array`.
+        the inverse of :meth:`to_components_array`.
         """
         values = _six_columns(array)
         return cls(
             force=values[..., :3],
             moment=values[..., 3:],
             frame=Frame.body() if frame is None else frame,
+            reference=reference,
+        )
+
+    @classmethod
+    def from_axial_normal(
+        cls,
+        *,
+        CA: ArrayLike,
+        CY: ArrayLike,
+        CN: ArrayLike,
+        Cl: ArrayLike,
+        Cm: ArrayLike,
+        Cn: ArrayLike,
+        reference: ReferenceQuantities,
+    ) -> AeroCoefficients:
+        """Build body-frame coefficients from axial and normal force (``CX = -CA``, ``CZ = -CN``).
+
+        This matches the body-axis output of panelsolver.
+        """
+        CA_array = finite_array(CA, "CA")
+        CN_array = finite_array(CN, "CN")
+        return cls.from_components(
+            CX=-CA_array, CY=CY, CZ=-CN_array, Cl=Cl, Cm=Cm, Cn=Cn, reference=reference
+        )
+
+    @classmethod
+    def from_axial_normal_array(
+        cls, array: ArrayLike, *, reference: ReferenceQuantities
+    ) -> AeroCoefficients:
+        """Build body-frame coefficients from a ``(..., 6)`` array ordered
+        ``CA, CY, CN, Cl, Cm, Cn``. This is the inverse of :meth:`to_axial_normal_array`.
+        """
+        values = _six_columns(array)
+        return cls.from_axial_normal(
+            CA=values[..., 0],
+            CY=values[..., 1],
+            CN=values[..., 2],
+            Cl=values[..., 3],
+            Cm=values[..., 4],
+            Cn=values[..., 5],
             reference=reference,
         )
 
@@ -158,24 +198,6 @@ class AeroCoefficients:
         )
 
     @classmethod
-    def from_axial_normal_array(
-        cls, array: ArrayLike, *, reference: ReferenceQuantities
-    ) -> AeroCoefficients:
-        """Build body-frame coefficients from a ``(..., 6)`` array ordered
-        ``CA, CY, CN, Cl, Cm, Cn``. This is the inverse of :meth:`to_axial_normal_array`.
-        """
-        values = _six_columns(array)
-        return cls.from_axial_normal(
-            CA=values[..., 0],
-            CY=values[..., 1],
-            CN=values[..., 2],
-            Cl=values[..., 3],
-            Cm=values[..., 4],
-            Cn=values[..., 5],
-            reference=reference,
-        )
-
-    @classmethod
     def from_lift_drag_array(
         cls,
         array: ArrayLike,
@@ -201,28 +223,6 @@ class AeroCoefficients:
             alpha_deg=alpha_deg,
         )
 
-    @classmethod
-    def from_axial_normal(
-        cls,
-        *,
-        CA: ArrayLike,
-        CY: ArrayLike,
-        CN: ArrayLike,
-        Cl: ArrayLike,
-        Cm: ArrayLike,
-        Cn: ArrayLike,
-        reference: ReferenceQuantities,
-    ) -> AeroCoefficients:
-        """Build body-frame coefficients from axial and normal force (``CX = -CA``, ``CZ = -CN``).
-
-        This matches the body-axis output of panelsolver.
-        """
-        CA_array = finite_array(CA, "CA")
-        CN_array = finite_array(CN, "CN")
-        return cls.from_components(
-            CX=-CA_array, CY=CY, CZ=-CN_array, Cl=Cl, Cm=Cm, Cn=Cn, reference=reference
-        )
-
     def to_frame(self, frame: Frame) -> AeroCoefficients:
         """Express the coefficients in ``frame`` about the same moment reference point.
 
@@ -241,7 +241,7 @@ class AeroCoefficients:
         """Express the coefficients in the body frame, FRD."""
         return self.to_frame(Frame.body())
 
-    def to_array(self) -> FloatArray:
+    def to_components_array(self) -> FloatArray:
         """Return a new ``(..., 6)`` array ordered ``CX, CY, CZ, Cl, Cm, Cn`` in this frame."""
         return np.concatenate([self.force, self.moment], axis=-1)
 

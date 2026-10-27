@@ -281,46 +281,48 @@ def test_to_frame_requires_a_frame() -> None:
 # Array and stability-axis inputs
 
 
-def test_from_array_splits_six_columns_in_order() -> None:
+def test_from_components_array_splits_six_columns_in_order() -> None:
     table = np.array([[1.0, 2.0, 3.0, 0.1, 0.2, 0.3], [4.0, 5.0, 6.0, 0.4, 0.5, 0.6]])
-    coefficients = AeroCoefficients.from_array(table, reference=REFERENCE)
+    coefficients = AeroCoefficients.from_components_array(table, reference=REFERENCE)
     assert coefficients.frame.kind == "body"
     np.testing.assert_array_equal(coefficients.CX, [1.0, 4.0])
     np.testing.assert_array_equal(coefficients.Cn, [0.3, 0.6])
-    np.testing.assert_array_equal(coefficients.to_array(), table)
+    np.testing.assert_array_equal(coefficients.to_components_array(), table)
 
 
-def test_from_array_keeps_an_explicit_frame_and_batches() -> None:
+def test_from_components_array_keeps_an_explicit_frame_and_batches() -> None:
     frame = Frame.stability(alpha_deg=[[0.0], [10.0]])
     table = RNG.normal(size=(2, 4, 6))
-    coefficients = AeroCoefficients.from_array(table, reference=REFERENCE, frame=frame)
+    coefficients = AeroCoefficients.from_components_array(table, reference=REFERENCE, frame=frame)
     assert coefficients.frame is frame
     assert coefficients.force.shape == (2, 4, 3)
-    np.testing.assert_array_equal(coefficients.to_array(), table)
+    np.testing.assert_array_equal(coefficients.to_components_array(), table)
 
 
 def test_array_round_trip_through_frames() -> None:
     table = RNG.normal(size=(200, 6))
-    body = AeroCoefficients.from_array(table, reference=REFERENCE)
+    body = AeroCoefficients.from_components_array(table, reference=REFERENCE)
     wind = body.to_frame(Frame.wind(alpha_rad=ALPHA_RAD, beta_rad=BETA_RAD))
-    back = AeroCoefficients.from_array(wind.to_array(), reference=REFERENCE, frame=wind.frame)
-    np.testing.assert_allclose(back.to_body().to_array(), table, rtol=0, atol=1e-13)
+    back = AeroCoefficients.from_components_array(
+        wind.to_components_array(), reference=REFERENCE, frame=wind.frame
+    )
+    np.testing.assert_allclose(back.to_body().to_components_array(), table, rtol=0, atol=1e-13)
 
 
 @pytest.mark.parametrize("shape", [(), (6, 3), (5,)])
-def test_from_array_requires_six_columns(shape: tuple[int, ...]) -> None:
+def test_from_components_array_requires_six_columns(shape: tuple[int, ...]) -> None:
     with pytest.raises(ValueError, match=r"\(\.\.\., 6\)"):
-        AeroCoefficients.from_array(np.zeros(shape), reference=REFERENCE)
+        AeroCoefficients.from_components_array(np.zeros(shape), reference=REFERENCE)
 
 
-def test_from_array_validates_values() -> None:
+def test_from_components_array_validates_values() -> None:
     with pytest.raises(ValueError, match="array must be finite"):
-        AeroCoefficients.from_array([0, 0, 0, 0, 0, np.nan], reference=REFERENCE)
+        AeroCoefficients.from_components_array([0, 0, 0, 0, 0, np.nan], reference=REFERENCE)
 
 
-def test_to_array_returns_a_new_writable_array() -> None:
+def test_to_components_array_returns_a_new_writable_array() -> None:
     coefficients = _random_body_coefficients(3)
-    array = coefficients.to_array()
+    array = coefficients.to_components_array()
     array[0, 0] = 99.0
     assert coefficients.CX[0] != 99.0
 
@@ -369,7 +371,9 @@ def test_from_lift_drag_round_trip_with_stability_output() -> None:
         reference=REFERENCE,
         alpha_rad=ALPHA_RAD,
     )
-    np.testing.assert_allclose(rebuilt.to_body().to_array(), body.to_array(), rtol=0, atol=1e-13)
+    np.testing.assert_allclose(
+        rebuilt.to_body().to_components_array(), body.to_components_array(), rtol=0, atol=1e-13
+    )
 
 
 def test_from_lift_drag_requires_exactly_one_alpha() -> None:
@@ -392,8 +396,10 @@ def test_axial_normal_array_columns() -> None:
     body = AeroCoefficients.from_axial_normal_array(table, reference=REFERENCE)
     assert body.frame.kind == "body"
     # ADR 0001: CX = -CA, CZ = -CN.
-    np.testing.assert_array_equal(body.to_array()[:, [0, 2]], -table[:, [0, 2]])
-    np.testing.assert_array_equal(body.to_array()[:, [1, 3, 4, 5]], table[:, [1, 3, 4, 5]])
+    np.testing.assert_array_equal(body.to_components_array()[:, [0, 2]], -table[:, [0, 2]])
+    np.testing.assert_array_equal(
+        body.to_components_array()[:, [1, 3, 4, 5]], table[:, [1, 3, 4, 5]]
+    )
     np.testing.assert_array_equal(body.to_axial_normal_array(), table)
 
 
@@ -415,14 +421,14 @@ def test_named_column_arrays_round_trip_through_frames() -> None:
     ).to_body()
     np.testing.assert_allclose(rebuilt.to_axial_normal_array(), axial_normal, rtol=0, atol=1e-13)
     again = AeroCoefficients.from_axial_normal_array(axial_normal, reference=REFERENCE)
-    np.testing.assert_array_equal(again.to_array(), body.to_array())
+    np.testing.assert_array_equal(again.to_components_array(), body.to_components_array())
 
 
 def test_lift_drag_table_differs_from_frame_component_table() -> None:
-    # from_array reads stability columns as CX, CY, CZ = -CD, CY, -CL (ADR 0001).
+    # from_components_array reads stability columns as CX, CY, CZ = -CD, CY, -CL (ADR 0001).
     stability = _random_body_coefficients().to_frame(Frame.stability(alpha_rad=ALPHA_RAD))
     lift_drag = stability.to_lift_drag_array()
-    components = stability.to_array()
+    components = stability.to_components_array()
     np.testing.assert_array_equal(components[:, [0, 2]], -lift_drag[:, [0, 2]])
     np.testing.assert_array_equal(components[:, [1, 3, 4, 5]], lift_drag[:, [1, 3, 4, 5]])
 
