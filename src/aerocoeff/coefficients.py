@@ -101,6 +101,56 @@ class AeroCoefficients:
         )
 
     @classmethod
+    def from_array(
+        cls,
+        array: ArrayLike,
+        *,
+        reference: ReferenceQuantities,
+        frame: Frame | None = None,
+    ) -> AeroCoefficients:
+        """Build from an array of shape ``(..., 6)`` ordered ``CX, CY, CZ, Cl, Cm, Cn``.
+
+        The components are in ``frame``, which defaults to the body frame. This is
+        the inverse of :meth:`to_array`.
+        """
+        values = finite_array(array, "array")
+        if values.ndim < 1 or values.shape[-1] != 6:
+            raise ValueError(f"array must have shape (..., 6), got {values.shape}")
+        return cls(
+            force=values[..., :3],
+            moment=values[..., 3:],
+            frame=Frame.body() if frame is None else frame,
+            reference=reference,
+        )
+
+    @classmethod
+    def from_lift_drag(
+        cls,
+        *,
+        CD: ArrayLike,
+        CY: ArrayLike,
+        CL: ArrayLike,
+        Cl: ArrayLike,
+        Cm: ArrayLike,
+        Cn: ArrayLike,
+        reference: ReferenceQuantities,
+        alpha_rad: ArrayLike | None = None,
+        alpha_deg: ArrayLike | None = None,
+    ) -> AeroCoefficients:
+        """Build stability-frame coefficients from drag, side force, and lift.
+
+        ``CX = -CD`` and ``CZ = -CL`` (ADR 0001). All six components, including the
+        moments, are in stability axes. Give exactly one of ``alpha_rad`` and
+        ``alpha_deg``.
+        """
+        frame = Frame.stability(alpha_rad=alpha_rad, alpha_deg=alpha_deg)
+        CD_array = finite_array(CD, "CD")
+        CL_array = finite_array(CL, "CL")
+        return cls.from_components(
+            CX=-CD_array, CY=CY, CZ=-CL_array, Cl=Cl, Cm=Cm, Cn=Cn, reference=reference, frame=frame
+        )
+
+    @classmethod
     def from_axial_normal(
         cls,
         *,
@@ -139,6 +189,10 @@ class AeroCoefficients:
     def to_body(self) -> AeroCoefficients:
         """Express the coefficients in the body frame, FRD."""
         return self.to_frame(Frame.body())
+
+    def to_array(self) -> FloatArray:
+        """Return a new ``(..., 6)`` array ordered ``CX, CY, CZ, Cl, Cm, Cn`` in this frame."""
+        return np.concatenate([self.force, self.moment], axis=-1)
 
     def _require_kind(self, kind: FrameKind, quantity: str) -> None:
         if self.frame.kind != kind:

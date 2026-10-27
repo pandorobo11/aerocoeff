@@ -143,7 +143,8 @@ def test_lift_and_drag_from_axial_and_normal_force() -> None:
 
 
 def test_normal_force_is_drag_at_ninety_degrees() -> None:
-    # Derivation: at alpha = 90 deg, x_stability = -z_body, so CD = CN and CL = -CA.
+    # Derivation: at alpha = 90 deg, x_stability = +z_body and z_stability = -x_body,
+    # so CD = -CZ_body = CN and CL = CX_body = -CA.
     body = AeroCoefficients.from_axial_normal(
         CA=0.2, CY=0.0, CN=1.5, Cl=0.0, Cm=0.0, Cn=0.0, reference=REFERENCE
     )
@@ -275,3 +276,109 @@ def test_named_quantities_require_their_frame() -> None:
 def test_to_frame_requires_a_frame() -> None:
     with pytest.raises(TypeError, match="Frame"):
         _random_body_coefficients(1).to_frame("FRD")  # type: ignore[arg-type]
+
+
+# Array and stability-axis inputs
+
+
+def test_from_array_splits_six_columns_in_order() -> None:
+    table = np.array([[1.0, 2.0, 3.0, 0.1, 0.2, 0.3], [4.0, 5.0, 6.0, 0.4, 0.5, 0.6]])
+    coefficients = AeroCoefficients.from_array(table, reference=REFERENCE)
+    assert coefficients.frame.kind == "body"
+    np.testing.assert_array_equal(coefficients.CX, [1.0, 4.0])
+    np.testing.assert_array_equal(coefficients.Cn, [0.3, 0.6])
+    np.testing.assert_array_equal(coefficients.to_array(), table)
+
+
+def test_from_array_keeps_an_explicit_frame_and_batches() -> None:
+    frame = Frame.stability(alpha_deg=[[0.0], [10.0]])
+    table = RNG.normal(size=(2, 4, 6))
+    coefficients = AeroCoefficients.from_array(table, reference=REFERENCE, frame=frame)
+    assert coefficients.frame is frame
+    assert coefficients.force.shape == (2, 4, 3)
+    np.testing.assert_array_equal(coefficients.to_array(), table)
+
+
+def test_array_round_trip_through_frames() -> None:
+    table = RNG.normal(size=(200, 6))
+    body = AeroCoefficients.from_array(table, reference=REFERENCE)
+    wind = body.to_frame(Frame.wind(alpha_rad=ALPHA_RAD, beta_rad=BETA_RAD))
+    back = AeroCoefficients.from_array(wind.to_array(), reference=REFERENCE, frame=wind.frame)
+    np.testing.assert_allclose(back.to_body().to_array(), table, rtol=0, atol=1e-13)
+
+
+@pytest.mark.parametrize("shape", [(), (6, 3), (5,)])
+def test_from_array_requires_six_columns(shape: tuple[int, ...]) -> None:
+    with pytest.raises(ValueError, match=r"\(\.\.\., 6\)"):
+        AeroCoefficients.from_array(np.zeros(shape), reference=REFERENCE)
+
+
+def test_from_array_validates_values() -> None:
+    with pytest.raises(ValueError, match="array must be finite"):
+        AeroCoefficients.from_array([0, 0, 0, 0, 0, np.nan], reference=REFERENCE)
+
+
+def test_to_array_returns_a_new_writable_array() -> None:
+    coefficients = _random_body_coefficients(3)
+    array = coefficients.to_array()
+    array[0, 0] = 99.0
+    assert coefficients.CX[0] != 99.0
+
+
+def test_from_lift_drag_inverts_the_anderson_example() -> None:
+    # Anderson, Fundamentals of Aerodynamics, Sec. 1.5, inverted:
+    # A = D cos a - L sin a, N = D sin a + L cos a.
+    stability = AeroCoefficients.from_lift_drag(
+        CD=0.5866025403784439,
+        CY=0.0,
+        CL=0.8160254037844386,
+        Cl=0.0,
+        Cm=0.0,
+        Cn=0.0,
+        reference=REFERENCE,
+        alpha_deg=30.0,
+    )
+    assert stability.frame.kind == "stability"
+    np.testing.assert_array_equal(
+        [stability.CX, stability.CZ], [-0.5866025403784439, -0.8160254037844386]
+    )
+    body = stability.to_body()
+    np.testing.assert_allclose([body.CA, body.CN], [0.1, 1.0], rtol=1e-14)
+
+
+def test_from_lift_drag_moments_are_in_stability_axes() -> None:
+    # Derivation: at alpha = 90 deg, x_stability = +z_body, so a stability roll
+    # moment is a body yaw moment: Cn = Cl_stability * l_roll / l_yaw = 0.1 * 10 / 7.
+    stability = AeroCoefficients.from_lift_drag(
+        CD=0.0, CY=0.0, CL=0.0, Cl=0.1, Cm=0.0, Cn=0.0, reference=REFERENCE, alpha_deg=90.0
+    )
+    body = stability.to_body()
+    np.testing.assert_allclose(body.moment, [0.0, 0.0, 0.1 * 10.0 / 7.0], atol=1e-16)
+
+
+def test_from_lift_drag_round_trip_with_stability_output() -> None:
+    body = _random_body_coefficients()
+    stability = body.to_frame(Frame.stability(alpha_rad=ALPHA_RAD))
+    rebuilt = AeroCoefficients.from_lift_drag(
+        CD=stability.CD,
+        CY=stability.CY,
+        CL=stability.CL,
+        Cl=stability.Cl,
+        Cm=stability.Cm,
+        Cn=stability.Cn,
+        reference=REFERENCE,
+        alpha_rad=ALPHA_RAD,
+    )
+    np.testing.assert_allclose(rebuilt.to_body().to_array(), body.to_array(), rtol=0, atol=1e-13)
+
+
+def test_from_lift_drag_requires_exactly_one_alpha() -> None:
+    with pytest.raises(TypeError, match="exactly one of alpha_rad and alpha_deg"):
+        AeroCoefficients.from_lift_drag(CD=0, CY=0, CL=0, Cl=0, Cm=0, Cn=0, reference=REFERENCE)
+
+
+def test_from_lift_drag_validates_by_name() -> None:
+    with pytest.raises(ValueError, match="CL must be finite"):
+        AeroCoefficients.from_lift_drag(
+            CD=0, CY=0, CL=np.inf, Cl=0, Cm=0, Cn=0, reference=REFERENCE, alpha_deg=0.0
+        )
