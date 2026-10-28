@@ -5,3 +5,5 @@ when applicable, `Supersedes`. List records here in order.
 
 1. [Frames, aerodynamic angles, and sign conventions](0001-frames-angles-and-sign-conventions.md)
    (Accepted)
+2. [Moment reference transfer and reference-quantity change](0002-moment-reference-transfer-and-renormalization.md)
+   (Accepted)

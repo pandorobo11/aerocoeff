@@ -1,4 +1,4 @@
-"""Reference quantities and six-component aerodynamic coefficients (ADR 0001)."""
+"""Reference quantities and six-component aerodynamic coefficients (ADR 0001, ADR 0002)."""
 
 from __future__ import annotations
 
@@ -322,6 +322,93 @@ class AeroCoefficients:
         force = (relative @ self.force[..., np.newaxis])[..., 0]
         moment = (relative @ (self.moment * lengths)[..., np.newaxis])[..., 0] / lengths
         return AeroCoefficients(force, moment, frame, self.reference)
+
+    def with_reference(self, reference: ReferenceQuantities) -> AeroCoefficients:
+        """Renormalize to ``reference`` in the same frame and about the same point.
+
+        ``C_F' = C_F S / S'`` and ``C_M' = C_M (S l) / (S' l')`` per axis position
+        (ADR 0002).
+        """
+        if not isinstance(reference, ReferenceQuantities):
+            raise TypeError("reference must be ReferenceQuantities")
+        area_ratio = self.reference.area_m2 / reference.area_m2
+        length_ratio = self.reference.moment_lengths_m / reference.moment_lengths_m
+        return AeroCoefficients(
+            self.force * area_ratio,
+            self.moment * (area_ratio * length_ratio),
+            self.frame,
+            reference,
+        )
+
+    def transfer_moment_reference(
+        self, *, from_point_m: ArrayLike, to_point_m: ArrayLike, points_frame: Frame
+    ) -> AeroCoefficients:
+        """Move the moment reference point from ``from_point_m`` to ``to_point_m``.
+
+        ``C_M,to = (l C_M,from + d x C_F) / l`` with ``d = r_from - r_to`` rotated
+        into this frame (ADR 0002). Both points are in ``points_frame``, in meters,
+        with a shared arbitrary origin; ``points_frame`` has no default because
+        points are often given in ``BRU``. Forces and reference quantities are
+        unchanged.
+        """
+        if not isinstance(points_frame, Frame):
+            raise TypeError("points_frame must be a Frame")
+        from_point = vector3_array(from_point_m, "from_point_m")
+        to_point = vector3_array(to_point_m, "to_point_m")
+        try:
+            np.broadcast_shapes(
+                self.force.shape[:-1],
+                self.frame.batch_shape,
+                from_point.shape[:-1],
+                to_point.shape[:-1],
+                points_frame.batch_shape,
+            )
+        except ValueError as error:
+            raise ValueError(
+                f"point batch shapes {from_point.shape[:-1]} and {to_point.shape[:-1]} and "
+                f"points_frame batch shape {points_frame.batch_shape} do not broadcast with "
+                f"coefficient batch shape {self.force.shape[:-1]}"
+            ) from error
+        relative = self.frame.rotation_from_body @ np.swapaxes(
+            points_frame.rotation_from_body, -1, -2
+        )
+        displacement = (relative @ (from_point - to_point)[..., np.newaxis])[..., 0]
+        lengths = self.reference.moment_lengths_m
+        moment = (self.moment * lengths + np.cross(displacement, self.force)) / lengths
+        force = np.broadcast_to(self.force, moment.shape)
+        return AeroCoefficients(force, moment, self.frame, self.reference)
+
+    def transform(
+        self,
+        *,
+        frame: Frame | None = None,
+        reference: ReferenceQuantities | None = None,
+        from_point_m: ArrayLike | None = None,
+        to_point_m: ArrayLike | None = None,
+        points_frame: Frame | None = None,
+    ) -> AeroCoefficients:
+        """Apply any combination of a moment reference transfer, a frame change, and a
+        reference-quantity change (ADR 0002).
+
+        The operations are exact in forces and moments per unit dynamic pressure,
+        so their order does not matter. Give ``from_point_m``, ``to_point_m``, and
+        ``points_frame`` together or not at all; ``reference`` lengths belong to
+        the axis positions of ``frame``.
+        """
+        result = self
+        if from_point_m is not None and to_point_m is not None and points_frame is not None:
+            result = result.transfer_moment_reference(
+                from_point_m=from_point_m, to_point_m=to_point_m, points_frame=points_frame
+            )
+        elif from_point_m is not None or to_point_m is not None or points_frame is not None:
+            raise TypeError(
+                "give from_point_m, to_point_m, and points_frame together or not at all"
+            )
+        if frame is not None:
+            result = result.to_frame(frame)
+        if reference is not None:
+            result = result.with_reference(reference)
+        return result
 
     def to_body(self) -> AeroCoefficients:
         """Express the coefficients in the body frame, FRD."""
