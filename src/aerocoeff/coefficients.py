@@ -10,11 +10,15 @@ from numpy.typing import ArrayLike
 from aerocoeff._validation import FloatArray, finite_array, positive_scalar, vector3_array
 from aerocoeff.frames import Frame, FrameKind
 
+# Largest |CY|, |Cl|, |Cn| accepted as zero by the longitudinal outputs; covers the
+# rounding left by rotations that return to the longitudinal plane.
+LATERAL_ATOL = 1e-12
 
-def _six_columns(array: ArrayLike) -> FloatArray:
+
+def _columns(array: ArrayLike, count: int) -> FloatArray:
     values = finite_array(array, "array")
-    if values.ndim < 1 or values.shape[-1] != 6:
-        raise ValueError(f"array must have shape (..., 6), got {values.shape}")
+    if values.ndim < 1 or values.shape[-1] != count:
+        raise ValueError(f"array must have shape (..., {count}), got {values.shape}")
     return values
 
 
@@ -127,7 +131,7 @@ class AeroCoefficients:
         not ``CD, CY, CL`` (use :meth:`from_lift_drag_array` for those). This is
         the inverse of :meth:`to_components_array`.
         """
-        values = _six_columns(array)
+        values = _columns(array, 6)
         return cls(
             force=values[..., :3],
             moment=values[..., 3:],
@@ -164,7 +168,7 @@ class AeroCoefficients:
         """Build body-frame coefficients from a ``(..., 6)`` array ordered
         ``CA, CY, CN, Cl, Cm, Cn``. This is the inverse of :meth:`to_axial_normal_array`.
         """
-        values = _six_columns(array)
+        values = _columns(array, 6)
         return cls.from_axial_normal(
             CA=values[..., 0],
             CY=values[..., 1],
@@ -215,7 +219,7 @@ class AeroCoefficients:
         ``CD, CY, CL, Cl, Cm, Cn``, all in stability axes. This is the inverse of
         :meth:`to_lift_drag_array`.
         """
-        values = _six_columns(array)
+        values = _columns(array, 6)
         return cls.from_lift_drag(
             CD=values[..., 0],
             CY=values[..., 1],
@@ -223,6 +227,78 @@ class AeroCoefficients:
             Cl=values[..., 3],
             Cm=values[..., 4],
             Cn=values[..., 5],
+            reference=reference,
+            alpha_rad=alpha_rad,
+            alpha_deg=alpha_deg,
+        )
+
+    @classmethod
+    def from_longitudinal_axial_normal(
+        cls, *, CA: ArrayLike, CN: ArrayLike, Cm: ArrayLike, reference: ReferenceQuantities
+    ) -> AeroCoefficients:
+        """Build body-frame coefficients from ``CA``, ``CN``, and ``Cm``, with
+        ``CY = Cl = Cn = 0``.
+        """
+        return cls.from_axial_normal(
+            CA=CA, CY=0.0, CN=CN, Cl=0.0, Cm=Cm, Cn=0.0, reference=reference
+        )
+
+    @classmethod
+    def from_longitudinal_axial_normal_array(
+        cls, array: ArrayLike, *, reference: ReferenceQuantities
+    ) -> AeroCoefficients:
+        """Build body-frame coefficients from a ``(..., 3)`` array ordered ``CA, CN, Cm``.
+
+        This is the inverse of :meth:`to_longitudinal_axial_normal_array`.
+        """
+        values = _columns(array, 3)
+        return cls.from_longitudinal_axial_normal(
+            CA=values[..., 0], CN=values[..., 1], Cm=values[..., 2], reference=reference
+        )
+
+    @classmethod
+    def from_longitudinal_lift_drag(
+        cls,
+        *,
+        CD: ArrayLike,
+        CL: ArrayLike,
+        Cm: ArrayLike,
+        reference: ReferenceQuantities,
+        alpha_rad: ArrayLike | None = None,
+        alpha_deg: ArrayLike | None = None,
+    ) -> AeroCoefficients:
+        """Build stability-frame coefficients from ``CD``, ``CL``, and ``Cm``, with
+        ``CY = Cl = Cn = 0``. Give exactly one of ``alpha_rad`` and ``alpha_deg``.
+        """
+        return cls.from_lift_drag(
+            CD=CD,
+            CY=0.0,
+            CL=CL,
+            Cl=0.0,
+            Cm=Cm,
+            Cn=0.0,
+            reference=reference,
+            alpha_rad=alpha_rad,
+            alpha_deg=alpha_deg,
+        )
+
+    @classmethod
+    def from_longitudinal_lift_drag_array(
+        cls,
+        array: ArrayLike,
+        *,
+        reference: ReferenceQuantities,
+        alpha_rad: ArrayLike | None = None,
+        alpha_deg: ArrayLike | None = None,
+    ) -> AeroCoefficients:
+        """Build stability-frame coefficients from a ``(..., 3)`` array ordered
+        ``CD, CL, Cm``. This is the inverse of :meth:`to_longitudinal_lift_drag_array`.
+        """
+        values = _columns(array, 3)
+        return cls.from_longitudinal_lift_drag(
+            CD=values[..., 0],
+            CL=values[..., 1],
+            Cm=values[..., 2],
             reference=reference,
             alpha_rad=alpha_rad,
             alpha_deg=alpha_deg,
@@ -270,6 +346,35 @@ class AeroCoefficients:
         """
         self._require_kind("stability", "the lift-drag array")
         return np.stack([self.CD, self.CY, self.CL, self.Cl, self.Cm, self.Cn], axis=-1)
+
+    def to_longitudinal_axial_normal_array(self) -> FloatArray:
+        """Return a new ``(..., 3)`` array ordered ``CA, CN, Cm``.
+
+        Only defined in the body frame, and only when ``CY``, ``Cl``, and ``Cn`` are
+        zero within :data:`LATERAL_ATOL`; lateral components are never dropped.
+        """
+        self._require_kind("body", "the longitudinal axial-normal array")
+        self._require_longitudinal()
+        return np.stack([self.CA, self.CN, self.Cm], axis=-1)
+
+    def to_longitudinal_lift_drag_array(self) -> FloatArray:
+        """Return a new ``(..., 3)`` array ordered ``CD, CL, Cm``.
+
+        Only defined in the stability frame, and only when ``CY``, ``Cl``, and ``Cn``
+        are zero within :data:`LATERAL_ATOL`; lateral components are never dropped.
+        """
+        self._require_kind("stability", "the longitudinal lift-drag array")
+        self._require_longitudinal()
+        return np.stack([self.CD, self.CL, self.Cm], axis=-1)
+
+    def _require_longitudinal(self) -> None:
+        lateral = np.abs(np.stack([self.CY, self.Cl, self.Cn], axis=-1))
+        largest = float(np.max(lateral, initial=0.0))
+        if largest > LATERAL_ATOL:
+            raise ValueError(
+                f"longitudinal output needs CY, Cl, and Cn within {LATERAL_ATOL:g} of zero, "
+                f"but the largest magnitude is {largest:.3g}; use the six-column array instead"
+            )
 
     def _require_kind(self, kind: FrameKind, quantity: str) -> None:
         if self.frame.kind != kind:

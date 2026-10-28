@@ -2,6 +2,7 @@ import numpy as np
 import pytest
 
 from aerocoeff import AeroCoefficients, Frame, ReferenceQuantities
+from aerocoeff.coefficients import LATERAL_ATOL
 from aerocoeff.frames import FrameKind
 
 # Unequal lengths so that any mixing of moment axes without length scaling shows up.
@@ -470,3 +471,105 @@ def test_reference_lengths_follow_axis_positions_in_permuted_frames() -> None:
     np.testing.assert_allclose(rdf.moment, [0.0125, 0.0, 0.0], atol=1e-17)
     np.testing.assert_allclose(rdf.Cl * 4.0, body.Cm * 0.5, rtol=1e-15)
     np.testing.assert_allclose(rdf.to_body().moment, [0.0, 0.1, 0.0], atol=1e-17)
+
+
+# Longitudinal three-component arrays
+
+
+def test_longitudinal_anderson_example() -> None:
+    # Anderson, Fundamentals of Aerodynamics, Sec. 1.5, as in
+    # test_lift_and_drag_from_axial_and_normal_force. Cm is unchanged because the
+    # stability frame shares the body y axis (ADR 0001).
+    body = AeroCoefficients.from_longitudinal_axial_normal(
+        CA=0.1, CN=1.0, Cm=-0.05, reference=REFERENCE
+    )
+    np.testing.assert_array_equal(body.to_components_array(), [-0.1, 0, -1.0, 0, -0.05, 0])
+    stability = body.to_frame(Frame.stability(alpha_deg=30.0))
+    np.testing.assert_allclose(
+        stability.to_longitudinal_lift_drag_array(),
+        [0.5866025403784439, 0.8160254037844386, -0.05],
+        rtol=1e-15,
+        atol=0,
+    )
+
+
+def test_longitudinal_arrays_match_six_component_entry_points() -> None:
+    table = np.array([[0.5866025403784439, 0.8160254037844386, -0.05], [0.02, 0.3, 0.01]])
+    stability = AeroCoefficients.from_longitudinal_lift_drag_array(
+        table, reference=REFERENCE, alpha_deg=30.0
+    )
+    assert stability.frame.kind == "stability"
+    np.testing.assert_array_equal(stability.to_lift_drag_array()[:, [0, 2, 4]], table)
+    np.testing.assert_array_equal(stability.to_lift_drag_array()[:, [1, 3, 5]], 0.0)
+    np.testing.assert_array_equal(stability.to_longitudinal_lift_drag_array(), table)
+    body = AeroCoefficients.from_longitudinal_axial_normal_array(table, reference=REFERENCE)
+    assert body.frame.kind == "body"
+    np.testing.assert_array_equal(body.to_axial_normal_array()[:, [0, 2, 4]], table)
+    np.testing.assert_array_equal(body.to_longitudinal_axial_normal_array(), table)
+
+
+def test_longitudinal_arrays_round_trip_through_frames() -> None:
+    axial_normal = RNG.normal(size=(200, 3))
+    body = AeroCoefficients.from_longitudinal_axial_normal_array(axial_normal, reference=REFERENCE)
+    lift_drag = body.to_frame(
+        Frame.stability(alpha_rad=ALPHA_RAD)
+    ).to_longitudinal_lift_drag_array()
+    rebuilt = AeroCoefficients.from_longitudinal_lift_drag_array(
+        lift_drag, reference=REFERENCE, alpha_rad=ALPHA_RAD
+    ).to_body()
+    np.testing.assert_allclose(
+        rebuilt.to_longitudinal_axial_normal_array(), axial_normal, rtol=0, atol=1e-13
+    )
+
+
+def test_longitudinal_output_accepts_rounding_after_leaving_the_plane() -> None:
+    # Through wind axes with beta = 10 deg and back, lateral components return to
+    # zero up to rounding, which LATERAL_ATOL accepts.
+    axial_normal = RNG.normal(size=(200, 3))
+    body = AeroCoefficients.from_longitudinal_axial_normal_array(axial_normal, reference=REFERENCE)
+    wind = body.to_frame(Frame.wind(alpha_rad=ALPHA_RAD, beta_deg=10.0))
+    assert np.max(np.abs(wind.CY)) > 1e-3
+    np.testing.assert_allclose(
+        wind.to_body().to_longitudinal_axial_normal_array(), axial_normal, rtol=0, atol=1e-13
+    )
+
+
+@pytest.mark.parametrize("column", [1, 3, 5])  # CY, Cl, Cn
+def test_longitudinal_output_rejects_lateral_components(column: int) -> None:
+    components = np.zeros(6)
+    components[column] = 2 * LATERAL_ATOL
+    body = AeroCoefficients.from_components_array(components, reference=REFERENCE)
+    with pytest.raises(ValueError, match="CY, Cl, and Cn within 1e-12 of zero"):
+        body.to_longitudinal_axial_normal_array()
+    stability = body.to_frame(Frame.stability(alpha_deg=0.0))
+    with pytest.raises(ValueError, match="largest magnitude is 2e-12"):
+        stability.to_longitudinal_lift_drag_array()
+
+
+def test_longitudinal_arrays_require_their_frame() -> None:
+    body = AeroCoefficients.from_longitudinal_axial_normal(
+        CA=0.1, CN=1.0, Cm=0.0, reference=REFERENCE
+    )
+    with pytest.raises(ValueError, match="longitudinal lift-drag array is defined in stability"):
+        body.to_longitudinal_lift_drag_array()
+    with pytest.raises(ValueError, match="longitudinal axial-normal array is defined in body"):
+        body.to_frame(Frame.stability(alpha_deg=5.0)).to_longitudinal_axial_normal_array()
+
+
+@pytest.mark.parametrize("shape", [(), (2, 6), (5,)])
+def test_longitudinal_arrays_require_three_columns(shape: tuple[int, ...]) -> None:
+    with pytest.raises(ValueError, match=r"\(\.\.\., 3\)"):
+        AeroCoefficients.from_longitudinal_axial_normal_array(np.zeros(shape), reference=REFERENCE)
+    with pytest.raises(ValueError, match=r"\(\.\.\., 3\)"):
+        AeroCoefficients.from_longitudinal_lift_drag_array(
+            np.zeros(shape), reference=REFERENCE, alpha_deg=0.0
+        )
+
+
+def test_longitudinal_entry_points_validate_by_name() -> None:
+    with pytest.raises(ValueError, match="CN must be finite"):
+        AeroCoefficients.from_longitudinal_axial_normal(
+            CA=0.0, CN=np.nan, Cm=0.0, reference=REFERENCE
+        )
+    with pytest.raises(TypeError, match="exactly one of alpha_rad and alpha_deg"):
+        AeroCoefficients.from_longitudinal_lift_drag(CD=0.0, CL=0.0, Cm=0.0, reference=REFERENCE)
