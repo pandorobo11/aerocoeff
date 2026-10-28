@@ -113,6 +113,21 @@ coefficient triple directly is wrong whenever the reference lengths differ:
 with `l_roll = 10`, `l_pitch = 2`, `Cm_body = 0.1`, and beta = 10 deg, the
 correct `Cl_wind` is 0.00347, while rotating the raw triple gives 0.01736.
 
+The reference lengths belong to the axis positions of the current frame, not to
+physical axes: the x-axis moment is always divided by `l_roll`, the y-axis
+moment by `l_pitch`, and the z-axis moment by `l_yaw`, in every frame. A frame
+change keeps the reference quantities; only the reference-quantity
+transformation (Phase 3) replaces them. In frames whose x and y axes stay close
+to forward and lateral (stability, wind, `BRU`) this matches the usual reading
+of roll, pitch, and yaw. In a frame that permutes the axes it does not: in `RDF`
+the x axis points along the right wing, so a body pitching moment
+`Cm = 0.1` with `l_pitch = 0.5` and `l_roll = 4` appears as an x-axis
+coefficient `0.1 * 0.5 / 4 = 0.0125`. The physical moment is unchanged; such
+frames need reference lengths chosen for their own axes. Physical axes cannot
+be assigned instead, because an arbitrary rotation has no unique roll axis.
+(Clarification added 2026-10-28; it states the rule already implied above and
+changes no behavior.)
+
 ### Positions
 
 Points such as moment reference points are positions, not
