@@ -98,10 +98,19 @@ force is up, a positive hinge moment tends to deflect the trailing edge down,
 and a positive bending moment comes from a positive normal force outboard of
 the root. `Ch` does not depend on the deflection, because `y_h` does not;
 `CN_s` and `CB` are taken in the deflected axes. The sign of every component
-follows the hinge-axis direction chosen by the user: reversing the two hinge
-points reverses `y_h` and `z_h`, and therefore `CN_s` and `Ch`. On a left
-surface, a hinge axis pointing outboard gives `z_h` down; a hinge axis pointing
-to the right on both sides gives the same signs on both sides.
+follows the hinge-axis direction chosen by the user. Reversing the axis while
+keeping `hinge_start_m` (for example moving `hinge_end_m` to the other side of
+the start) reverses `y_h` and `z0` and keeps `x0`. Because the deflection is a
+right-hand rotation about `y_h`, the same physical deflected surface then has
+the opposite deflection angle; only with both the axis and the deflection
+reversed do the components become `(-CN_s, -Ch, CB)`. Keeping the same
+deflection value describes a different surface attitude. Swapping
+`hinge_start_m` and `hinge_end_m` also reverses the axis, but it moves the
+moment reference point to the other end of the hinge line, so `CB` (and, for a
+load not along the hinge, the other moments) generally changes as well (ADR
+0002). On a left surface, a hinge axis pointing outboard gives `z_h` down; a
+hinge axis pointing to the right on both sides gives the same signs on both
+sides.
 
 The full six components in the hinge frame remain available; the chordwise
 force `CX_h` and the moment about the normal `Cn_h` have no names here.

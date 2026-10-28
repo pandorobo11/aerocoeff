@@ -137,16 +137,62 @@ def test_left_tail_and_vertical_fin_axes() -> None:
     np.testing.assert_array_equal(fin.frame(deflection_deg=0.0).rotation_from_body[2], [0, -1, 0])
 
 
-def test_reversing_the_hinge_axis_flips_normal_force_and_hinge_moment() -> None:
-    # Same start point, axis reversed: y_h and z_h flip, x_h does not (ADR 0003).
-    reversed_end = ROOT_BODY - (TIP_BODY - ROOT_BODY)
-    kwargs = {"moment_reference_m": [0.0, 0.0, 0.0], "deflection_deg": 5.0}
-    forward = _tail().three_components_array(_example_load(), **kwargs)  # type: ignore[arg-type]
-    backward = _tail(end=reversed_end).three_components_array(
-        _example_load(),
-        **kwargs,  # type: ignore[arg-type]
+UNIT = ReferenceQuantities(area_m2=1.0, length_roll_m=1.0, length_pitch_m=1.0, length_yaw_m=1.0)
+
+
+def _unit_surface(start: list[float], end: list[float]) -> ControlSurface:
+    return ControlSurface(
+        hinge_start_m=np.array(start),
+        hinge_end_m=np.array(end),
+        trailing_edge_direction=np.array([-1.0, 0.0, 0.0]),
+        points_frame=BODY,
+        area_m2=1.0,
+        hinge_moment_length_m=1.0,
+        bending_moment_length_m=1.0,
     )
-    np.testing.assert_allclose(backward, forward * [-1, -1, 1], rtol=1e-14)
+
+
+@pytest.mark.parametrize(
+    ("start", "end", "deflection_deg", "expected"),
+    [
+        # Hand derivation from the ADR 0003 axes with s = sin 30 deg = 0.5, all
+        # reference quantities 1, F = (1, 0, 0), M = (0, 2, 1) about the origin:
+        # axis +y: x0 = (-1, 0, 0), z0 = (0, 0, -1); x_h = (-c, 0, s), z_h = (-s, 0, -c).
+        ([0.0, 0.0, 0.0], [0.0, 1.0, 0.0], 30.0, [-0.5, 2.0, 0.5]),
+        # Axis -y, same +30 deg: z0 = (0, 0, 1); x_h = (-c, 0, -s), z_h = (-s, 0, c).
+        # This is a different surface attitude (trailing edge moved the other way).
+        ([0.0, 0.0, 0.0], [0.0, -1.0, 0.0], 30.0, [-0.5, -2.0, -0.5]),
+        # Axis -y with the deflection reversed: the same attitude as the first case,
+        # so (CN_s, Ch, CB) -> (-CN_s, -Ch, CB).
+        ([0.0, 0.0, 0.0], [0.0, -1.0, 0.0], -30.0, [0.5, -2.0, 0.5]),
+        # Endpoints swapped: same axes as the previous case, but the reference moves
+        # to (0, 1, 0): M_Q = M_P + (r_P - r_Q) x F = (0, 2, 2) (ADR 0002), so CB = 2 s.
+        ([0.0, 1.0, 0.0], [0.0, 0.0, 0.0], -30.0, [0.5, -2.0, 1.0]),
+    ],
+)
+def test_reversing_the_hinge_axis(
+    start: list[float], end: list[float], deflection_deg: float, expected: list[float]
+) -> None:
+    load = AeroCoefficients(np.array([1.0, 0.0, 0.0]), np.array([0.0, 2.0, 1.0]), BODY, UNIT)
+    result = _unit_surface(start, end).three_components_array(
+        load, moment_reference_m=[0.0, 0.0, 0.0], deflection_deg=deflection_deg
+    )
+    np.testing.assert_allclose(result, expected, rtol=1e-14, atol=1e-15)
+
+
+def test_reversed_axis_with_reversed_deflection_flips_normal_force_and_hinge_moment() -> None:
+    # ADR 0003: with the start fixed, reversing both the axis and the deflection
+    # gives (-CN_s, -Ch, CB) for a general load.
+    load = AeroCoefficients(RNG.normal(size=(50, 3)), RNG.normal(size=(50, 3)), BODY, VEHICLE)
+    deflection_deg = RNG.uniform(-30.0, 30.0, 50)
+    reversed_end = ROOT_BODY - (TIP_BODY - ROOT_BODY)
+    forward = _tail().three_components_array(
+        load, moment_reference_m=[1.0, -0.5, 0.2], deflection_deg=deflection_deg
+    )
+    backward = _tail(end=reversed_end).three_components_array(
+        load, moment_reference_m=[1.0, -0.5, 0.2], deflection_deg=-deflection_deg
+    )
+    np.testing.assert_allclose(backward, forward * [-1, -1, 1], rtol=1e-12, atol=1e-12)
 
 
 # Agreement, round trips, and frames
