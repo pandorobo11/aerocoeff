@@ -23,6 +23,11 @@ class ReferenceQuantities:
     """Reference area and per-axis moment reference lengths, in SI units.
 
     ``Cl = L / (q S l_roll)``, ``Cm = M / (q S l_pitch)``, ``Cn = N / (q S l_yaw)``.
+
+    The lengths belong to the axis positions of whatever frame the coefficients
+    are in: the x-, y-, and z-axis moments are divided by ``l_roll``, ``l_pitch``,
+    and ``l_yaw`` respectively, in every frame (ADR 0001). The area has no
+    direction.
     """
 
     area_m2: float
@@ -228,6 +233,11 @@ class AeroCoefficients:
 
         Forces are rotated directly. Moments are rotated as the length-scaled vector
         ``(Cl l_roll, Cm l_pitch, Cn l_yaw)`` and renormalized (ADR 0001).
+
+        The reference quantities are kept, so in the result the x-, y-, and z-axis
+        moments of ``frame`` are again divided by ``l_roll``, ``l_pitch``, and
+        ``l_yaw``. For a frame that permutes the axes, such as ``"RDF"``, these
+        lengths no longer match roll, pitch, and yaw.
         """
         if not isinstance(frame, Frame):
             raise TypeError("frame must be a Frame")

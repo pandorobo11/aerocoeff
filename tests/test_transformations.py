@@ -453,3 +453,20 @@ def test_named_column_arrays_require_six_columns(shape: tuple[int, ...]) -> None
 def test_lift_drag_array_requires_exactly_one_alpha() -> None:
     with pytest.raises(TypeError, match="exactly one of alpha_rad and alpha_deg"):
         AeroCoefficients.from_lift_drag_array(np.zeros(6), reference=REFERENCE)
+
+
+def test_reference_lengths_follow_axis_positions_in_permuted_frames() -> None:
+    # ADR 0001 clarification: in RDF the x axis is the right wing, so a body pitching
+    # moment Cm = 0.1 (l_pitch = 0.5) becomes the x-axis coefficient 0.1 * 0.5 / 4
+    # (l_roll = 4). The physical moment, coefficient times length, is unchanged.
+    reference = ReferenceQuantities(
+        area_m2=2.0, length_roll_m=4.0, length_pitch_m=0.5, length_yaw_m=4.0
+    )
+    body = AeroCoefficients.from_components(
+        CX=0, CY=0, CZ=0, Cl=0, Cm=0.1, Cn=0, reference=reference
+    )
+    rdf = body.to_frame(Frame.from_axes("RDF"))
+    assert rdf.reference is reference
+    np.testing.assert_allclose(rdf.moment, [0.0125, 0.0, 0.0], atol=1e-17)
+    np.testing.assert_allclose(rdf.Cl * 4.0, body.Cm * 0.5, rtol=1e-15)
+    np.testing.assert_allclose(rdf.to_body().moment, [0.0, 0.1, 0.0], atol=1e-17)
