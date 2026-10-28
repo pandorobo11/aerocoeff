@@ -7,3 +7,5 @@ when applicable, `Supersedes`. List records here in order.
    (Accepted)
 2. [Moment reference transfer and reference-quantity change](0002-moment-reference-transfer-and-renormalization.md)
    (Accepted)
+3. [Control-surface frame and three-component loads](0003-control-surface-components.md)
+   (Accepted)
