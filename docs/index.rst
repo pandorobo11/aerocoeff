@@ -22,7 +22,8 @@ NumPy arrays of cases. Reference quantities are shared scalars, and each
 If you are new to the package, read :doc:`getting_started/installation`,
 :doc:`getting_started/quickstart`, and :doc:`getting_started/conventions` in
 that order, then the :doc:`guides/index` for the tasks you need. The
-:doc:`api/index` lists every class and method.
+:doc:`api/index` lists every class and method. To use the package without
+writing code, see :doc:`guides/gui`.
 
 .. toctree::
    :maxdepth: 2

@@ -15,6 +15,9 @@ The package is not on PyPI. Install it from a wheel file, named like
 In a project managed with `uv <https://docs.astral.sh/uv/>`__, use
 ``uv add`` with the same file or directory instead of ``pip install``.
 
+To use the optional GUI, install the ``gui`` extra as described in
+:doc:`../guides/gui`.
+
 Check the installation:
 
 .. code-block:: console

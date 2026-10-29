@@ -37,7 +37,10 @@ def _sphinx_step(builder: str) -> Step:
     return (f"Sphinx {builder}", ("uv", "run", "--no-sync", *command))
 
 
-SYNC_STEP: Step = ("Dependency sync", ("uv", "sync", "--locked", "--group", "docs"))
+SYNC_STEP: Step = (
+    "Dependency sync",
+    ("uv", "sync", "--locked", "--group", "docs", "--extra", "gui"),
+)
 QUALITY_STEPS: tuple[Step, ...] = (
     ("Ruff format", ("uv", "run", "--no-sync", "ruff", "format", "--check", *LINT_PATHS)),
     ("Ruff lint", ("uv", "run", "--no-sync", "ruff", "check", *LINT_PATHS)),
