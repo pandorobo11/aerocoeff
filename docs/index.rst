@@ -13,8 +13,11 @@ panel code have to be expressed differently:
 * as forces and moments in newtons and newton meters.
 
 Every frame, sign, and angle unit is stated explicitly, so a result never
-depends on a hidden convention. All quantities are in SI units, and every input
-may be a single value or a NumPy array of many cases.
+depends on a hidden convention. Dimensional loads, reference quantities, and
+point coordinates use SI units. Coefficient components and angles support
+NumPy arrays of cases. Reference quantities are shared scalars, and each
+``ControlSurface`` describes one fixed geometry; see
+:doc:`guides/batches_and_validation` for batch inputs.
 
 If you are new to the package, read :doc:`getting_started/installation`,
 :doc:`getting_started/quickstart`, and :doc:`getting_started/conventions` in

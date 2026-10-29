@@ -24,9 +24,12 @@ Example
 -------
 
 The input must be the load on the surface alone, taken about a known point.
-Here an upward force ``CZ = -0.01`` acts 0.1 m aft of the hinge and 0.5 m
-outboard of the root, with its moment taken about the vehicle reference point
-at the origin of the CAD model, all in ``BRU`` (x back, y right, z up):
+Here the coefficients are in body axes (``FRD``): an upward force
+``CZ = -0.01`` acts 0.1 m aft of the hinge and 0.5 m outboard of the root,
+with its moment taken about the vehicle reference point at the origin of the
+CAD model. The hinge points, trailing-edge direction, and
+``moment_reference_m`` are expressed separately in ``BRU`` (x back, y right,
+z up):
 
 >>> import numpy as np
 >>> from aerocoeff import AeroCoefficients, ControlSurface, Frame, ReferenceQuantities

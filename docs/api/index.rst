@@ -1,8 +1,10 @@
 API reference
 =============
 
-Import every public name from the top-level package, for example
-``from aerocoeff import AeroCoefficients``.
+Import the classes and ``FrameKind`` from the top-level package, for example
+``from aerocoeff import AeroCoefficients``. The tolerance constants listed
+below are available from their indicated submodules, for example
+``from aerocoeff.coefficients import LATERAL_ATOL``.
 
 .. currentmodule:: aerocoeff
 
