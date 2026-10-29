@@ -7,7 +7,13 @@ from dataclasses import dataclass
 import numpy as np
 from numpy.typing import ArrayLike
 
-from aerocoeff._validation import FloatArray, finite_array, positive_scalar, vector3_array
+from aerocoeff._validation import (
+    FloatArray,
+    finite_array,
+    positive_array,
+    positive_scalar,
+    vector3_array,
+)
 from aerocoeff.frames import Frame, FrameKind
 
 # Largest |CY|, |Cl|, |Cn| accepted as zero by the longitudinal outputs; covers the
@@ -20,6 +26,18 @@ def _columns(array: ArrayLike, count: int) -> FloatArray:
     if values.ndim < 1 or values.shape[-1] != count:
         raise ValueError(f"array must have shape (..., {count}), got {values.shape}")
     return values
+
+
+def _dynamic_pressure(value: ArrayLike, *batch_shapes: tuple[int, ...]) -> FloatArray:
+    pressure = positive_array(value, "dynamic_pressure_pa")
+    try:
+        np.broadcast_shapes(pressure.shape, *batch_shapes)
+    except ValueError as error:
+        raise ValueError(
+            f"dynamic_pressure_pa shape {pressure.shape} does not broadcast with "
+            f"batch shapes {batch_shapes}"
+        ) from error
+    return pressure
 
 
 @dataclass(frozen=True)
@@ -135,6 +153,36 @@ class AeroCoefficients:
         return cls(
             force=values[..., :3],
             moment=values[..., 3:],
+            frame=Frame.body() if frame is None else frame,
+            reference=reference,
+        )
+
+    @classmethod
+    def from_loads_array(
+        cls,
+        array: ArrayLike,
+        *,
+        dynamic_pressure_pa: ArrayLike,
+        reference: ReferenceQuantities,
+        frame: Frame | None = None,
+    ) -> AeroCoefficients:
+        """Build from forces and moments in a ``(..., 6)`` array ordered
+        ``Fx, Fy, Fz, Mx, My, Mz``, in newtons and newton meters.
+
+        ``C_F = F / (q S)`` and ``C_M = M / (q S l)`` per axis position (ADR 0001).
+        The loads are along and about the axes of ``frame``, which defaults to the
+        body frame, and the moments are about the moment reference point.
+        ``dynamic_pressure_pa`` must be positive and broadcasts with the batch.
+        This is the inverse of :meth:`to_loads_array`.
+        """
+        values = _columns(array, 6)
+        if not isinstance(reference, ReferenceQuantities):
+            raise TypeError("reference must be ReferenceQuantities")
+        pressure = _dynamic_pressure(dynamic_pressure_pa, values.shape[:-1])
+        scale = (pressure * reference.area_m2)[..., np.newaxis]
+        return cls(
+            force=values[..., :3] / scale,
+            moment=values[..., 3:] / (scale * reference.moment_lengths_m),
             frame=Frame.body() if frame is None else frame,
             reference=reference,
         )
@@ -417,6 +465,24 @@ class AeroCoefficients:
     def to_components_array(self) -> FloatArray:
         """Return a new ``(..., 6)`` array ordered ``CX, CY, CZ, Cl, Cm, Cn`` in this frame."""
         return np.concatenate([self.force, self.moment], axis=-1)
+
+    def to_loads_array(self, *, dynamic_pressure_pa: ArrayLike) -> FloatArray:
+        """Return a new ``(..., 6)`` array ordered ``Fx, Fy, Fz, Mx, My, Mz``, in newtons
+        and newton meters.
+
+        ``F = q S C_F`` and ``M = q S (l C_M)`` per axis position (ADR 0001), along
+        and about the axes of this frame and about the moment reference point.
+        ``dynamic_pressure_pa`` must be positive and broadcasts with the batch.
+        This is the inverse of :meth:`from_loads_array`.
+        """
+        pressure = _dynamic_pressure(
+            dynamic_pressure_pa, self.force.shape[:-1], self.frame.batch_shape
+        )
+        scale = (pressure * self.reference.area_m2)[..., np.newaxis]
+        return np.concatenate(
+            [self.force * scale, self.moment * (scale * self.reference.moment_lengths_m)],
+            axis=-1,
+        )
 
     def to_axial_normal_array(self) -> FloatArray:
         """Return a new ``(..., 6)`` array ordered ``CA, CY, CN, Cl, Cm, Cn``.

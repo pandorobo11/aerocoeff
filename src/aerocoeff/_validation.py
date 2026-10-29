@@ -52,3 +52,11 @@ def positive_scalar(value: ArrayLike, name: str) -> float:
     if scalar <= 0.0:
         raise ValueError(f"{name} must be positive, got {scalar}")
     return scalar
+
+
+def positive_array(value: ArrayLike, name: str) -> FloatArray:
+    """Return a validated finite array whose elements are all greater than zero."""
+    array = finite_array(value, name)
+    if not np.all(array > 0.0):
+        raise ValueError(f"{name} must be positive, got minimum {float(np.min(array))}")
+    return array

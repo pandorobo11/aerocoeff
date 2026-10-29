@@ -55,6 +55,13 @@
 
 - Forces and moments to and from coefficients via dynamic pressure, reference
   area, and reference lengths.
+- Scope agreed on 2026-10-29: array conversion only
+  (`AeroCoefficients.to_loads_array` and `AeroCoefficients.from_loads_array`,
+  columns `Fx, Fy, Fz, Mx, My, Mz` in N and N m). There is no dimensional loads
+  type; frame changes and moment reference transfer stay on coefficients. The
+  formulas are those of ADR 0001 and ADR 0002, so no new ADR is needed.
+  Dynamic-pressure helpers (from density and airspeed, or static pressure and
+  Mach number) are not included.
 
 ### Phase 6: documentation
 
