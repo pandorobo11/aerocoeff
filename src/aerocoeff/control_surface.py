@@ -45,7 +45,7 @@ class ControlSurface:
     ``hinge_start_m`` and normalized with ``area_m2`` and the component-named
     lengths: ``Ch`` with ``hinge_moment_length_m``, ``CB`` with
     ``bending_moment_length_m``, and ``Cn_h`` with ``normal_moment_length_m``,
-    which defaults to ``bending_moment_length_m`` (ADR 0003).
+    which defaults to ``bending_moment_length_m``.
     """
 
     #: Start of the hinge line and moment reference point of the surface loads, shape ``(3,)``.
@@ -163,7 +163,7 @@ class ControlSurface:
         deflection_rad: ArrayLike | None = None,
         deflection_deg: ArrayLike | None = None,
     ) -> FloatArray:
-        """Return a new ``(..., 3)`` array ordered ``CN_s, Ch, CB`` (ADR 0003):
+        """Return a new ``(..., 3)`` array ordered ``CN_s, Ch, CB``:
         normal force along ``z_h``, hinge moment about ``y_h``, and root bending
         moment about ``x_h``.
         """

@@ -48,7 +48,7 @@ class ReferenceQuantities:
 
     The lengths belong to the axis positions of whatever frame the coefficients
     are in: the x-, y-, and z-axis moments are divided by ``l_roll``, ``l_pitch``,
-    and ``l_yaw`` respectively, in every frame (ADR 0001). The area has no
+    and ``l_yaw`` respectively, in every frame. The area has no
     direction.
     """
 
@@ -177,7 +177,7 @@ class AeroCoefficients:
         """Build from forces and moments in a ``(..., 6)`` array ordered
         ``Fx, Fy, Fz, Mx, My, Mz``, in newtons and newton meters.
 
-        ``C_F = F / (q S)`` and ``C_M = M / (q S l)`` per axis position (ADR 0001).
+        ``C_F = F / (q S)`` and ``C_M = M / (q S l)`` per axis position.
         The loads are along and about the axes of ``frame``, which defaults to the
         body frame, and the moments are about the moment reference point.
         ``dynamic_pressure_pa`` must be positive and broadcasts with the batch.
@@ -209,7 +209,7 @@ class AeroCoefficients:
     ) -> AeroCoefficients:
         """Build body-frame coefficients from axial and normal force (``CX = -CA``, ``CZ = -CN``).
 
-        This matches the body-axis output of panelsolver.
+        This is the usual body-axis output of panel and CFD codes.
         """
         CA_array = finite_array(CA, "CA")
         CN_array = finite_array(CN, "CN")
@@ -251,7 +251,7 @@ class AeroCoefficients:
     ) -> AeroCoefficients:
         """Build stability-frame coefficients from drag, side force, and lift.
 
-        ``CX = -CD`` and ``CZ = -CL`` (ADR 0001). All six components, including the
+        ``CX = -CD`` and ``CZ = -CL``. All six components, including the
         moments, are in stability axes. Give exactly one of ``alpha_rad`` and
         ``alpha_deg``.
         """
@@ -364,7 +364,7 @@ class AeroCoefficients:
         """Express the coefficients in ``frame`` about the same moment reference point.
 
         Forces are rotated directly. Moments are rotated as the length-scaled vector
-        ``(Cl l_roll, Cm l_pitch, Cn l_yaw)`` and renormalized (ADR 0001).
+        ``(Cl l_roll, Cm l_pitch, Cn l_yaw)`` and renormalized.
 
         The reference quantities are kept, so in the result the x-, y-, and z-axis
         moments of ``frame`` are again divided by ``l_roll``, ``l_pitch``, and
@@ -382,8 +382,7 @@ class AeroCoefficients:
     def with_reference(self, reference: ReferenceQuantities) -> AeroCoefficients:
         """Renormalize to ``reference`` in the same frame and about the same point.
 
-        ``C_F' = C_F S / S'`` and ``C_M' = C_M (S l) / (S' l')`` per axis position
-        (ADR 0002).
+        ``C_F' = C_F S / S'`` and ``C_M' = C_M (S l) / (S' l')`` per axis position.
         """
         if not isinstance(reference, ReferenceQuantities):
             raise TypeError("reference must be ReferenceQuantities")
@@ -402,7 +401,7 @@ class AeroCoefficients:
         """Move the moment reference point from ``from_point_m`` to ``to_point_m``.
 
         ``C_M,to = (l C_M,from + d x C_F) / l`` with ``d = r_from - r_to`` rotated
-        into this frame (ADR 0002). Both points are in ``points_frame``, in meters,
+        into this frame. Both points are in ``points_frame``, in meters,
         with a shared arbitrary origin; ``points_frame`` has no default because
         points are often given in ``BRU``. Forces and reference quantities are
         unchanged.
@@ -444,7 +443,7 @@ class AeroCoefficients:
         points_frame: Frame | None = None,
     ) -> AeroCoefficients:
         """Apply any combination of a moment reference transfer, a frame change, and a
-        reference-quantity change (ADR 0002).
+        reference-quantity change.
 
         The operations are exact in forces and moments per unit dynamic pressure,
         so their order does not matter. Give ``from_point_m``, ``to_point_m``, and
@@ -478,7 +477,7 @@ class AeroCoefficients:
         """Return a new ``(..., 6)`` array ordered ``Fx, Fy, Fz, Mx, My, Mz``, in newtons
         and newton meters.
 
-        ``F = q S C_F`` and ``M = q S (l C_M)`` per axis position (ADR 0001), along
+        ``F = q S C_F`` and ``M = q S (l C_M)`` per axis position, along
         and about the axes of this frame and about the moment reference point.
         ``dynamic_pressure_pa`` must be positive and broadcasts with the batch.
         This is the inverse of :meth:`from_loads_array`.

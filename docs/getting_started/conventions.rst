@@ -1,14 +1,13 @@
 Conventions
 ===========
 
-This page summarizes the conventions fixed by the accepted architecture
-decision records. If this page and an ADR ever disagree, the ADR applies.
+These conventions apply to every function in the package. Read this page
+before relying on a sign or a frame.
 
 Frames
 ------
 
-All frames are right-handed and share the moment reference point as origin
-(`ADR 0001 <https://github.com/pandorobo11/aerocoeff/blob/main/devdocs/adr/0001-frames-angles-and-sign-conventions.md>`__).
+All frames are right-handed and share the moment reference point as origin.
 
 .. list-table::
    :header-rows: 1
@@ -26,7 +25,8 @@ All frames are right-handed and share the moment reference point as origin
      - stability rotated about z_stability by beta
      - ``Frame.wind(alpha_deg=..., beta_deg=...)``
    * - Axis letters
-     - one of F/B, R/L, D/U per axis, for example ``"BRU"`` (panelsolver STL)
+     - one of F/B, R/L, D/U per axis, for example ``"BRU"``: x back, y right, z up,
+       as in many CAD models
      - ``Frame.from_axes("BRU")``
    * - Rotation matrix
      - ``v_frame = R @ v_body``
@@ -80,8 +80,7 @@ Points
 ------
 
 Points, such as moment reference points and hinge lines, are in meters in their
-own ``points_frame``, which is always given explicitly
-(`ADR 0002 <https://github.com/pandorobo11/aerocoeff/blob/main/devdocs/adr/0002-moment-reference-transfer-and-renormalization.md>`__). Only
+own ``points_frame``, which is always given explicitly. Only
 differences of points are used, so the origin (for example the CAD or STL
 origin) never needs to be stated. Points are often in ``BRU``, where x points
 back and z up.
@@ -89,6 +88,5 @@ back and z up.
 Control surfaces
 ----------------
 
-A control surface's frame and components are fixed by
-`ADR 0003 <https://github.com/pandorobo11/aerocoeff/blob/main/devdocs/adr/0003-control-surface-components.md>`__ and described in
-:doc:`../guides/control_surface`.
+A control surface has its own frame, built from its hinge line, and its own
+three components; see :doc:`../guides/control_surface`.

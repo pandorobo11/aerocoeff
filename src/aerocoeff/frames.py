@@ -93,7 +93,7 @@ class Frame:
 
     ``rotation_from_body`` has shape ``(..., 3, 3)`` so that one frame object can
     describe a batch of orientations. ``kind`` marks the body, stability, and wind
-    frames, whose named coefficients (``CA``, ``CD``, ...) are defined in ADR 0001;
+    frames, in which the named coefficients (``CA``, ``CD``, ...) are defined;
     a kind other than ``"custom"`` is checked against the rotation.
     """
 
@@ -125,7 +125,7 @@ class Frame:
 
         Letters are F/B (forward/back), R/L (right/left wing), and D/U (down/up),
         one from each pair, in any order. For example, ``"FRD"`` is the body frame
-        and ``"BRU"`` is the panelsolver STL frame.
+        and ``"BRU"`` (x back, y right, z up) is common in CAD models.
         """
         if not isinstance(axes, str):
             raise TypeError("axes must be a string such as 'FRD'")
@@ -149,7 +149,7 @@ class Frame:
     def stability(
         cls, *, alpha_rad: ArrayLike | None = None, alpha_deg: ArrayLike | None = None
     ) -> Frame:
-        """Stability frame: the body frame rotated about y_body by alpha (ADR 0001).
+        """Stability frame: the body frame rotated about y_body by alpha.
 
         Give exactly one of ``alpha_rad`` and ``alpha_deg``; array angles give a
         batch of frames.
@@ -166,7 +166,7 @@ class Frame:
         beta_rad: ArrayLike | None = None,
         beta_deg: ArrayLike | None = None,
     ) -> Frame:
-        """Wind frame: the stability frame rotated about z_stability by beta (ADR 0001).
+        """Wind frame: the stability frame rotated about z_stability by beta.
 
         Give exactly one of each angle pair; the alpha and beta arrays broadcast
         together.

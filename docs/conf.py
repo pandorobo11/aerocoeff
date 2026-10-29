@@ -34,8 +34,5 @@ nitpick_ignore_regex = [("py:class", r"numpy\..*")]
 
 html_theme = "pydata_sphinx_theme"
 html_title = f"aerocoeff {release}"
-html_theme_options = {
-    "github_url": "https://github.com/pandorobo11/aerocoeff",
-}
 
 exclude_patterns = ["_build"]

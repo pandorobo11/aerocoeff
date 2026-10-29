@@ -17,7 +17,8 @@ All of them must be positive.
 Building coefficients
 ---------------------
 
-Body-axis results, such as the panelsolver ``CA, CY, CN, Cl, Cm, Cn`` output:
+Body-axis results, such as the ``CA, CY, CN, Cl, Cm, Cn`` output of a panel or
+CFD code:
 
 >>> body = AeroCoefficients.from_axial_normal(
 ...     CA=0.1, CY=0.0, CN=1.0, Cl=0.0, Cm=-0.05, Cn=0.0, reference=reference
@@ -81,7 +82,7 @@ Moments are rotated as the length-scaled vector
 ``(Cl l_roll, Cm l_pitch, Cn l_yaw)`` and renormalized, because the lengths
 differ between axes. A pitching moment ``Cm = 0.1`` with ``l_pitch = 2`` and
 ``l_roll = 10`` seen in wind axes at beta = 10 deg has
-``Cl_wind = 0.1 * 2 * sin(10 deg) / 10`` (ADR 0001):
+``Cl_wind = 0.1 * 2 * sin(10 deg) / 10``, not ``0.1 * sin(10 deg)``:
 
 >>> pitching = AeroCoefficients.from_components(
 ...     CX=0.0, CY=0.0, CZ=0.0, Cl=0.0, Cm=0.1, Cn=0.0, reference=reference

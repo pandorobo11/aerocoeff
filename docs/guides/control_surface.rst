@@ -2,8 +2,7 @@ Control-surface loads
 =====================
 
 :class:`~aerocoeff.ControlSurface` re-expresses the load on one surface as its
-normal force ``CN_s``, hinge moment ``Ch``, and root bending moment ``CB``
-(`ADR 0003 <https://github.com/pandorobo11/aerocoeff/blob/main/devdocs/adr/0003-control-surface-components.md>`__).
+normal force ``CN_s``, hinge moment ``Ch``, and root bending moment ``CB``.
 
 Geometry and signs
 ------------------
@@ -27,7 +26,7 @@ Example
 The input must be the load on the surface alone, taken about a known point.
 Here an upward force ``CZ = -0.01`` acts 0.1 m aft of the hinge and 0.5 m
 outboard of the root, with its moment taken about the vehicle reference point
-at the STL origin (the ADR 0003 verification example, in ``BRU``):
+at the origin of the CAD model, all in ``BRU`` (x back, y right, z up):
 
 >>> import numpy as np
 >>> from aerocoeff import AeroCoefficients, ControlSurface, Frame, ReferenceQuantities

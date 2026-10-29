@@ -1,23 +1,25 @@
 aerocoeff
 =========
 
-``aerocoeff`` transforms six-component aerodynamic coefficients between
-reference frames, moment reference points, and reference quantities,
-re-expresses a control-surface load as its own three components, and converts
-coefficients to and from forces and moments.
+``aerocoeff`` is a Python library for aerodynamic force and moment
+coefficients. Use it when coefficients from a wind tunnel, a CFD run, or a
+panel code have to be expressed differently:
 
-Frames, signs, and angle units are always explicit. The default frame is the
-body frame (x forward, y toward the right wing, z down), all quantities are in
-SI units, and NumPy is the only runtime dependency.
+* in other axes: body, stability, wind, or the axes of a CAD model;
+* about another moment reference point, such as the center of gravity;
+* with another reference area or other reference lengths;
+* as the normal force, hinge moment, and root bending moment of a control
+  surface;
+* as forces and moments in newtons and newton meters.
 
-Start with the :doc:`getting_started/quickstart`, and read
-:doc:`getting_started/conventions` before relying on a sign or a frame. The
-:doc:`guides/index` work through every operation with checked examples, and the
-:doc:`api/index` lists the public classes and methods.
+Every frame, sign, and angle unit is stated explicitly, so a result never
+depends on a hidden convention. All quantities are in SI units, and every input
+may be a single value or a NumPy array of many cases.
 
-The conventions are fixed by the accepted
-`architecture decision records <https://github.com/pandorobo11/aerocoeff/blob/main/devdocs/adr/README.md>`__.
-If this manual and an ADR ever disagree, the ADR applies.
+If you are new to the package, read :doc:`getting_started/installation`,
+:doc:`getting_started/quickstart`, and :doc:`getting_started/conventions` in
+that order, then the :doc:`guides/index` for the tasks you need. The
+:doc:`api/index` lists every class and method.
 
 .. toctree::
    :maxdepth: 2

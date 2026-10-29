@@ -1,8 +1,8 @@
 Guides
 ======
 
-Each guide is a sequence of examples that the documentation build runs as
-doctests, so the printed values are the package's actual output.
+Each guide covers one task with examples you can paste into Python. The
+printed values are the actual output of the package.
 
 .. toctree::
    :maxdepth: 1

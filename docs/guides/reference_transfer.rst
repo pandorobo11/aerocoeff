@@ -5,7 +5,7 @@ Moving the moment reference point
 ---------------------------------
 
 :meth:`~aerocoeff.AeroCoefficients.transfer_moment_reference` applies
-``M_to = M_from + (r_from - r_to) x F`` (ADR 0002). Both points are in
+``M_to = M_from + (r_from - r_to) x F``. Both points are in
 ``points_frame``, which has no default. Here an upward normal force ``CN = 1``
 is moved to a point 0.5 m aft, given in ``BRU`` STL coordinates (x back), so
 ``Delta Cm = CN * 0.5 / l_pitch = +0.25``, nose up:
