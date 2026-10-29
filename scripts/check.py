@@ -23,7 +23,21 @@ class Mode(Enum):
     STANDARD = "standard"
 
 
-SYNC_STEP: Step = ("Dependency sync", ("uv", "sync", "--locked"))
+def _sphinx_step(builder: str) -> Step:
+    """Build ``docs/`` with one Sphinx builder, treating warnings as errors."""
+    command = (
+        "sphinx-build",
+        "-W",
+        "--keep-going",
+        "-b",
+        builder,
+        "docs",
+        f"docs/_build/{builder}",
+    )
+    return (f"Sphinx {builder}", ("uv", "run", "--no-sync", *command))
+
+
+SYNC_STEP: Step = ("Dependency sync", ("uv", "sync", "--locked", "--group", "docs"))
 QUALITY_STEPS: tuple[Step, ...] = (
     ("Ruff format", ("uv", "run", "--no-sync", "ruff", "format", "--check", *LINT_PATHS)),
     ("Ruff lint", ("uv", "run", "--no-sync", "ruff", "check", *LINT_PATHS)),
@@ -32,6 +46,8 @@ QUALITY_STEPS: tuple[Step, ...] = (
 QUICK_TEST_STEP: Step = ("pytest", ("uv", "run", "--no-sync", "pytest"))
 STANDARD_STEPS: tuple[Step, ...] = (
     ("pytest with coverage", ("uv", "run", "--no-sync", "pytest", "--cov", "--cov-report=term")),
+    _sphinx_step("html"),
+    _sphinx_step("doctest"),
     ("Build distributions", ("uv", "build")),
 )
 
@@ -39,7 +55,7 @@ STANDARD_STEPS: tuple[Step, ...] = (
 def build_plan(mode: Mode) -> tuple[Step, ...]:
     quality = (SYNC_STEP, *QUALITY_STEPS)
     if mode is Mode.QUICK:
-        return (*quality, QUICK_TEST_STEP)
+        return (*quality, QUICK_TEST_STEP, _sphinx_step("doctest"))
     return (*quality, *STANDARD_STEPS)
 
 
@@ -75,14 +91,14 @@ def _parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         dest="mode",
         action="store_const",
         const=Mode.QUICK,
-        help="run formatting, lint, mypy, and pytest",
+        help="run formatting, lint, mypy, pytest, and documentation doctests",
     )
     modes.add_argument(
         "--standard",
         dest="mode",
         action="store_const",
         const=Mode.STANDARD,
-        help="run the push/PR gate: quick checks plus coverage and distribution build",
+        help="run the push/PR gate: quick checks plus coverage, docs, and distribution build",
     )
     parser.set_defaults(mode=Mode.STANDARD)
     return parser.parse_args(argv)
