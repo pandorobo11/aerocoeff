@@ -3,7 +3,7 @@ import math
 import numpy as np
 import pytest
 
-from aerocoeff._validation import finite_array, positive_scalar, vector3_array
+from aerocoeff._validation import finite_array, positive_array, positive_scalar, vector3_array
 
 
 def test_finite_array_converts_integers_to_read_only_float64() -> None:
@@ -75,3 +75,13 @@ def test_positive_scalar_rejects_non_positive_values(value: float) -> None:
 def test_positive_scalar_rejects_arrays() -> None:
     with pytest.raises(ValueError, match="scalar"):
         positive_scalar([1.0], "s")
+
+
+def test_positive_array_accepts_arrays() -> None:
+    np.testing.assert_array_equal(positive_array([[1, 2.5]], "q"), [[1.0, 2.5]])
+
+
+@pytest.mark.parametrize("value", [0.0, -1.0, [1.0, 0.0]])
+def test_positive_array_rejects_non_positive_values(value: object) -> None:
+    with pytest.raises(ValueError, match="positive"):
+        positive_array(value, "q")  # type: ignore[arg-type]
