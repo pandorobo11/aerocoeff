@@ -16,8 +16,8 @@ from aerocoeff._validation import (
 )
 from aerocoeff.frames import Frame, FrameKind
 
-# Largest |CY|, |Cl|, |Cn| accepted as zero by the longitudinal outputs; covers the
-# rounding left by rotations that return to the longitudinal plane.
+#: Largest magnitude of ``CY``, ``Cl``, and ``Cn`` accepted as zero by the longitudinal
+#: outputs; covers the rounding left by rotations that return to the longitudinal plane.
 LATERAL_ATOL = 1e-12
 
 
@@ -52,9 +52,13 @@ class ReferenceQuantities:
     direction.
     """
 
+    #: Reference area ``S``, in m^2.
     area_m2: float
+    #: Length that divides the x-axis moment, in m.
     length_roll_m: float
+    #: Length that divides the y-axis moment, in m.
     length_pitch_m: float
+    #: Length that divides the z-axis moment, in m.
     length_yaw_m: float
 
     def __post_init__(self) -> None:
@@ -83,9 +87,13 @@ class AeroCoefficients:
     about the moment reference point and normalized with ``reference``.
     """
 
+    #: ``(CX, CY, CZ)`` along the axes of :attr:`frame`, shape ``(..., 3)``.
     force: FloatArray
+    #: ``(Cl, Cm, Cn)`` about the axes of :attr:`frame`, shape ``(..., 3)``.
     moment: FloatArray
+    #: Frame of both :attr:`force` and :attr:`moment`.
     frame: Frame
+    #: Reference area and per-axis lengths of the normalization.
     reference: ReferenceQuantities
 
     def __post_init__(self) -> None:
@@ -504,7 +512,8 @@ class AeroCoefficients:
         """Return a new ``(..., 3)`` array ordered ``CA, CN, Cm``.
 
         Only defined in the body frame, and only when ``CY``, ``Cl``, and ``Cn`` are
-        zero within :data:`LATERAL_ATOL`; lateral components are never dropped.
+        zero within :data:`~aerocoeff.coefficients.LATERAL_ATOL`; lateral components are
+        never dropped.
         """
         self._require_kind("body", "the longitudinal axial-normal array")
         self._require_longitudinal()
@@ -514,7 +523,8 @@ class AeroCoefficients:
         """Return a new ``(..., 3)`` array ordered ``CD, CL, Cm``.
 
         Only defined in the stability frame, and only when ``CY``, ``Cl``, and ``Cn``
-        are zero within :data:`LATERAL_ATOL`; lateral components are never dropped.
+        are zero within :data:`~aerocoeff.coefficients.LATERAL_ATOL`; lateral components
+        are never dropped.
         """
         self._require_kind("stability", "the longitudinal lift-drag array")
         self._require_longitudinal()
@@ -562,24 +572,30 @@ class AeroCoefficients:
 
     @property
     def CX(self) -> FloatArray:
+        """Force coefficient along the x axis of this frame."""
         return self.force[..., 0]
 
     @property
     def CY(self) -> FloatArray:
+        """Force coefficient along the y axis of this frame."""
         return self.force[..., 1]
 
     @property
     def CZ(self) -> FloatArray:
+        """Force coefficient along the z axis of this frame."""
         return self.force[..., 2]
 
     @property
     def Cl(self) -> FloatArray:
+        """Moment coefficient about the x axis of this frame, divided by ``l_roll``."""
         return self.moment[..., 0]
 
     @property
     def Cm(self) -> FloatArray:
+        """Moment coefficient about the y axis of this frame, divided by ``l_pitch``."""
         return self.moment[..., 1]
 
     @property
     def Cn(self) -> FloatArray:
+        """Moment coefficient about the z axis of this frame, divided by ``l_yaw``."""
         return self.moment[..., 2]

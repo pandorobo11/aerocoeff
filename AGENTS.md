@@ -71,10 +71,12 @@ python scripts/check.py --quick  # during development
 python scripts/check.py          # before push or pull request
 ```
 
-Each mode begins with `uv sync --locked` and stops at the first failure. Quick
-runs Ruff format and lint, mypy (strict) over `src`, `tests`, and `scripts`, and
-pytest. The default standard mode runs pytest with coverage and builds the
-distributions instead of the plain pytest step.
+Each mode begins with `uv sync --locked --group docs` and stops at the first
+failure. Quick runs Ruff format and lint, mypy (strict) over `src`, `tests`, and
+`scripts`, pytest, and the Sphinx doctest build of `docs/`. The default standard
+mode runs pytest with coverage, the Sphinx HTML and doctest builds, and the
+distribution build instead of the plain pytest step. Sphinx treats warnings as
+errors.
 
 ## Completion report
 

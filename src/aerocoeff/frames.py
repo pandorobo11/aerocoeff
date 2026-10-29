@@ -97,8 +97,11 @@ class Frame:
     a kind other than ``"custom"`` is checked against the rotation.
     """
 
+    #: Rotation ``R`` with ``v_frame = R @ v_body``, shape ``(..., 3, 3)``.
     rotation_from_body: FloatArray
+    #: Name used in messages, such as ``"FRD"`` or ``"stability"``.
     name: str
+    #: ``"body"``, ``"stability"``, ``"wind"``, or ``"custom"``; checked against the rotation.
     kind: FrameKind = "custom"
 
     def __post_init__(self) -> None:
