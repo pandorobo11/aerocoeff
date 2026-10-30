@@ -39,7 +39,7 @@ COEFFICIENT_COLUMNS: dict[ColumnSet, tuple[str, ...]] = {
 LOAD_COLUMNS = ("Fx_N", "Fy_N", "Fz_N", "Mx_Nm", "My_Nm", "Mz_Nm")
 HINGE_COLUMNS = ("CX_h", "CY_h", "CZ_h", "Cl_h", "Cm_h", "Cn_h")
 OUTPUT_SUFFIX = "_out"
-"""Appended to a result column whose name is already an input column of the CSV."""
+"""Appended to a result column name until no other column of the CSV has it."""
 
 
 @dataclass(frozen=True)
@@ -243,33 +243,44 @@ class CaseTable:
 
 
 def read_cases_csv(data: bytes | str, required: Sequence[str]) -> CaseTable:
-    """Read a CSV file with a header row; extra columns are kept for the output."""
+    """Read a CSV file with a header row; extra columns are kept for the output.
+
+    Errors name the file line on which the record starts.
+    """
     text = data.decode("utf-8-sig") if isinstance(data, bytes) else data
-    records = [row for row in csv.reader(io.StringIO(text)) if any(cell.strip() for cell in row)]
+    reader = csv.reader(io.StringIO(text))
+    # Each record with the file line it starts on; blank lines are skipped.
+    records: list[tuple[int, list[str]]] = []
+    start = 1
+    for record in reader:
+        if any(cell.strip() for cell in record):
+            records.append((start, record))
+        start = reader.line_num + 1
     if not records:
         raise ValueError("the CSV file is empty")
-    header = tuple(name.strip() for name in records[0])
+    header = tuple(name.strip() for name in records[0][1])
     if len(set(header)) != len(header):
         raise ValueError("the CSV header repeats a column name")
     missing = [name for name in required if name not in header]
     if missing:
         raise ValueError(f"the CSV file needs the columns: {', '.join(missing)}")
-    rows = tuple(tuple(cell.strip() for cell in row) for row in records[1:])
+    lines = [line for line, _ in records[1:]]
+    rows = tuple(tuple(cell.strip() for cell in row) for _, row in records[1:])
     if not rows:
         raise ValueError("the CSV file has no data rows")
-    for number, row in enumerate(rows, start=2):
+    for line, row in zip(lines, rows, strict=True):
         if len(row) != len(header):
-            raise ValueError(f"line {number} has {len(row)} values, expected {len(header)}")
+            raise ValueError(f"line {line} has {len(row)} values, expected {len(header)}")
     values: Columns = {}
     for name in required:
         index = header.index(name)
         column = np.empty(len(rows))
-        for number, row in enumerate(rows, start=2):
+        for case, (line, row) in enumerate(zip(lines, rows, strict=True)):
             try:
-                column[number - 2] = float(row[index])
+                column[case] = float(row[index])
             except ValueError:
                 raise ValueError(
-                    f"line {number}, column {name}: {row[index]!r} is not a number"
+                    f"line {line}, column {name}: {row[index]!r} is not a number"
                 ) from None
         values[name] = column
     return CaseTable(header, rows, values)
@@ -281,8 +292,17 @@ def cases_csv_template(required: Sequence[str]) -> str:
 
 
 def write_results_csv(table: CaseTable, results: Columns) -> str:
-    """The input columns followed by the results; a repeated name gets :data:`OUTPUT_SUFFIX`."""
-    names = [name + OUTPUT_SUFFIX if name in table.header else name for name in results]
+    """The input columns followed by the results.
+
+    A result name that is already taken gets :data:`OUTPUT_SUFFIX` until it is unique.
+    """
+    taken = set(table.header)
+    names = []
+    for name in results:
+        while name in taken:
+            name += OUTPUT_SUFFIX
+        taken.add(name)
+        names.append(name)
     stream = io.StringIO()
     writer = csv.writer(stream, lineterminator="\n")
     writer.writerow([*table.header, *names])

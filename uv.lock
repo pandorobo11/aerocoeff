@@ -58,7 +58,7 @@ docs = [
 [package.metadata]
 requires-dist = [
     { name = "numpy", specifier = ">=2.0" },
-    { name = "streamlit", marker = "extra == 'gui'", specifier = ">=1.50,<2" },
+    { name = "streamlit", marker = "extra == 'gui'", specifier = ">=1.56,<2" },
 ]
 provides-extras = ["gui"]
 

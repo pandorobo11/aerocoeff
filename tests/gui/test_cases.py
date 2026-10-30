@@ -258,6 +258,11 @@ def test_read_cases_csv_keeps_extra_columns() -> None:
         ("CX\n1\n", "needs the columns: alpha_deg"),
         ("CX,alpha_deg\n1\n", "line 2 has 1 values, expected 2"),
         ("CX,alpha_deg\n1,2\nx,3\n", "line 3, column CX: 'x' is not a number"),
+        # Lines are counted in the file: blank lines count, and a quoted field
+        # with a line break makes the next record start one line later.
+        ("CX,alpha_deg\n0.5,2\n\nx,3\n", "line 4, column CX: 'x' is not a number"),
+        ('CX,alpha_deg,note\n0.5,2,"a\nb"\nx,3,c\n', "line 4, column CX: 'x' is not"),
+        ('CX,alpha_deg\n0.5,2\n\n"1\n",2,3\n', "line 4 has 3 values, expected 2"),
     ],
 )
 def test_read_cases_csv_rejects_bad_files(text: str, message: str) -> None:
@@ -271,6 +276,19 @@ def test_write_results_csv_appends_results() -> None:
     assert c.write_results_csv(table, results) == (
         "case,CX,alpha_deg,CX_out,CD\nA,0.5,2,0.25,1.0\nB,1,3,0.1,2.0\n"
     )
+
+
+def test_write_results_csv_keeps_result_names_unique() -> None:
+    text = "case,CX,alpha_deg,CX_out,CX_out_out\nA,0.5,2,previous,older\n"
+    table = c.read_cases_csv(text, REQUIRED)
+    results = {"CX": np.array([0.25]), "CD": np.array([1.0])}
+    written = c.write_results_csv(table, results)
+    assert written == (
+        "case,CX,alpha_deg,CX_out,CX_out_out,CX_out_out_out,CD\nA,0.5,2,previous,older,0.25,1.0\n"
+    )
+    again = c.read_cases_csv(written, ("CX", "CX_out_out_out", "CD"))
+    assert again.rows == (("A", "0.5", "2", "previous", "older", "0.25", "1.0"),)
+    np.testing.assert_array_equal(again.values["CX_out_out_out"], [0.25])
 
 
 def test_template_and_single_case() -> None:

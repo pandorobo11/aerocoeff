@@ -67,8 +67,8 @@ Upload a CSV file with a header row and one case per row:
 Column names are case sensitive. Columns that the page does not use, such as
 ``case`` above, are copied to the results. The results are shown in a table
 and can be downloaded as a CSV file with the input columns followed by the
-result columns; a result whose name is already an input column gets the suffix
-``_out``. A file with a missing column, a value that is not a number, or a
+result columns; a result whose name is already taken gets the suffix ``_out``,
+repeated until the name is unique. A file with a missing column, a value that is not a number, or a
 value the calculation rejects shows an error instead of results.
 
 The column names are:

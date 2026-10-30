@@ -42,7 +42,7 @@ Repository = "https://github.com/pandorobo11/aerocoeff"
 
 [project.optional-dependencies]
 gui = [
-    "streamlit>=1.50,<2",
+    "streamlit>=1.56,<2",
 ]
 
 [build-system]
