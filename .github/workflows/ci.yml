@@ -26,7 +26,7 @@ jobs:
           python-version: "3.12"
 
       - name: Install dependencies
-        run: uv sync --locked --group docs
+        run: uv sync --locked --group docs --extra gui
 
       - name: Formatting
         run: uv run --no-sync ruff format --check src tests scripts
@@ -63,7 +63,7 @@ jobs:
           python-version: ${{ matrix.python-version }}
 
       - name: Install dependencies
-        run: uv sync --locked
+        run: uv sync --locked --extra gui
 
       - name: Tests
         timeout-minutes: 10

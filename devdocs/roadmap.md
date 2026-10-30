@@ -68,3 +68,22 @@
 - User documentation and examples.
 - Releases are GitHub Releases with the wheel and sdist attached; see
   [Release](development/release.md). PyPI release is out of scope.
+
+### Phase 7: GUI
+
+Scope agreed on 2026-10-30:
+
+- Streamlit GUI in `aerocoeff.gui`, installed with the optional `gui` extra and
+  started with `aerocoeff-gui`. It listens on `127.0.0.1` only and turns off
+  Streamlit usage statistics.
+- Pages for the combined transformation (frame change, moment reference
+  transfer, and reference change in any combination, as `transform`),
+  control-surface components, and conversion to and from forces and moments.
+  Each page takes one case typed in or a CSV batch with one case per row, and
+  offers the results as a CSV download.
+- The GUI calls the public API only and adds no formula. Inputs that the API
+  requires without a default (angles, deflections, dynamic pressures, the frame
+  of the points) start empty in the GUI.
+- The wheel bundles the HTML manual (`aerocoeff/_docs`, built by
+  `hatch_build.py`), and the GUI shows it on a Documentation page.
+

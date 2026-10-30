@@ -33,9 +33,17 @@ docs = [
     "sphinx>=8.1",
 ]
 
+[project.scripts]
+aerocoeff-gui = "aerocoeff.gui.launcher:run"
+
 [project.urls]
 Homepage = "https://github.com/pandorobo11/aerocoeff"
 Repository = "https://github.com/pandorobo11/aerocoeff"
+
+[project.optional-dependencies]
+gui = [
+    "streamlit>=1.56,<2",
+]
 
 [build-system]
 requires = ["hatchling>=1.27"]
@@ -43,6 +51,15 @@ build-backend = "hatchling.build"
 
 [tool.uv]
 package = true
+
+# The wheel bundles the HTML manual, built by hatch_build.py with these packages.
+[tool.hatch.build.targets.wheel.hooks.custom]
+dependencies = [
+    "numpy>=2.0",
+    "numpydoc>=1.8",
+    "pydata-sphinx-theme>=0.16",
+    "sphinx>=8.1",
+]
 
 [tool.ruff]
 line-length = 100
@@ -60,6 +77,9 @@ filterwarnings = ["error"]
 [tool.coverage.run]
 source = ["aerocoeff"]
 branch = true
+# Streamlit executes the app entry script itself, which some coverage cores cannot
+# trace; tests/gui/test_pages.py runs it with AppTest instead.
+omit = ["src/aerocoeff/gui/app.py"]
 
 [tool.coverage.report]
 show_missing = true

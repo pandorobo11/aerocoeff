@@ -6,7 +6,9 @@
 - moment reference transfer and reference-quantity changes, with per-axis
   reference lengths;
 - control-surface normal force, hinge moment, and root bending moment;
-- conversion between coefficients and forces and moments in N and N m.
+- conversion between coefficients and forces and moments in N and N m;
+- an optional browser GUI (`aerocoeff-gui`, with the `gui` extra) for single
+  cases and CSV batches.
 
 Frames, signs, and angle units are always explicit. The default frame is the
 body frame (x forward, y toward the right wing, z down), and NumPy is the only

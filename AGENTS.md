@@ -51,8 +51,9 @@ code.
 
 ## Dependencies
 
-NumPy is the only intended runtime dependency. Explain every new production
-dependency in the pull request.
+NumPy is the only intended runtime dependency of the library. The optional `gui`
+extra adds Streamlit for `aerocoeff.gui`; nothing outside that package may import
+it. Explain every new production dependency in the pull request.
 
 ## Change discipline
 
@@ -71,8 +72,8 @@ python scripts/check.py --quick  # during development
 python scripts/check.py          # before push or pull request
 ```
 
-Each mode begins with `uv sync --locked --group docs` and stops at the first
-failure. Quick runs Ruff format and lint, mypy (strict) over `src`, `tests`, and
+Each mode begins with `uv sync --locked --group docs --extra gui` and stops at
+the first failure. Quick runs Ruff format and lint, mypy (strict) over `src`, `tests`, and
 `scripts`, pytest, and the Sphinx doctest build of `docs/`. The default standard
 mode runs pytest with coverage, the Sphinx HTML and doctest builds, and the
 distribution build instead of the plain pytest step. Sphinx treats warnings as
